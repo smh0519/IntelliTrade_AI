@@ -19,10 +19,20 @@ if not api_key:
 
 client = genai.Client(api_key=api_key)
 
-# 2. 페르소나 및 파일 생성 규칙 설정
-system_instruction = """
+# --------------------------------------------------
+# 현재 폴더의 파일 목록을 읽어옵니다.
+current_files = os.listdir('.')
+file_list_text = ", ".join(current_files)
+# --------------------------------------------------
+
+# 2. 페르소나 및 파일 생성 규칙 설정 (중복 제거 및 통합 완료)
+system_instruction = f"""
 너는 '퀀트 투자 전문가'이자 '시니어 파이썬 개발자'야. 
 사용자 '민혁'이 주식 자동 매매 프로그램을 만들 수 있도록 프로젝트의 전체 구조를 설계하고 코드를 짜줘.
+
+[현재 사용자의 로컬 환경]
+현재 작업 중인 폴더에는 다음과 같은 파일들이 있어: {file_list_text}
+사용자가 현재 폴더의 파일에 대해 물어보면 이 목록을 바탕으로 정확하게 대답해 줘.
 
 [파일 생성 규칙]
 1. 코드를 작성할 때 파일명이 필요하다면 반드시 코드 블록 바로 위에 [FILE: 파일명.확장자] 라고 적어줘.
@@ -35,9 +45,7 @@ system_instruction = """
 """
 
 def extract_and_save_all_files(text):
-    """답변에서 [FILE: 파일명] 패턴을 찾아 모든 파일을 생성합니다."""
-    # 정규표현식 수정 완료: [FILE: 파일명] 뒤의 마크다운 블록 내용(줄바꿈 포함)을 정확히 추출
-    # re.DOTALL을 사용하여 줄바꿈이 있어도 끝까지 매칭되게 합니다.
+    """답변에서 [FILE: 파일명] 패턴을 찾아 폴더와 함께 모든 파일을 생성합니다."""
     file_pattern = r'\[FILE:\s*(.*?)\]\s*```[a-zA-Z]*\n(.*?)```'
     matches = re.findall(file_pattern, text, re.DOTALL)
     
@@ -47,6 +55,11 @@ def extract_and_save_all_files(text):
     for filename, content in matches:
         filename = filename.strip()
         try:
+            # 🚀 핵심 추가: 파일명에 폴더 경로가 포함되어 있다면, 폴더부터 자동 생성!
+            directory = os.path.dirname(filename)
+            if directory: # 경로에 폴더가 존재하면
+                os.makedirs(directory, exist_ok=True) # 폴더 생성 (이미 있으면 무시)
+                
             with open(filename, 'w', encoding='utf-8') as f:
                 f.write(content.strip() + '\n')
             console.print(f"[green]✅ 파일 자동 생성 완료: {filename}[/green]")
@@ -58,7 +71,7 @@ def main():
     # 3. 모델 설정 및 세션 시작
     try:
         chat = client.chats.create(
-            model="gemini-2.5-flash", # 자동 매매 봇 같은 복잡한 코딩엔 pro 모델이 적합합니다.
+            model="gemini-2.5-flash", # 속도와 제한에서 훨씬 유리한 flash 모델 사용
             config=types.GenerateContentConfig(
                 system_instruction=system_instruction,
                 temperature=0.7
