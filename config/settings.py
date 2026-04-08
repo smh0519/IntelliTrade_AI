@@ -16,6 +16,7 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") # Gemini API 키 (gemini_pro.py에�
 # TRADING_ACCOUNT_ID = os.getenv("TRADING_ACCOUNT_ID")
 
 # --- General Settings ---
+IS_SIMULATION_MODE = True # 시뮬레이션 모드 활성화 여부
 APP_NAME = "QuantStockTrader"
 VERSION = "1.0.0"
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper() # 로깅 레벨 (DEBUG, INFO, WARNING, ERROR, CRITICAL)

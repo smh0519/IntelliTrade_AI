@@ -1,70 +1,80 @@
-# 퀀트 주식 자동 매매 시스템 (Quant Bot)
+# 📈 Advanced Quant Trading Bot
 
-## 🚀 프로젝트 개요
+이 프로젝트는 Python 기반의 자동 매매 시스템으로, 하이브리드 멀티 전략(Multi-Strategy) 병렬 처리와 강력한 자산 방어 가이드라인(Risk Management)을 핵심으로 설계된 봇입니다. 
 
-이 프로젝트는 파이썬(Python)을 기반으로 운영되는 퀀트 주식 자동 매매 시스템입니다. `pandas`와 `numpy` 등 데이터 분석 라이브러리를 활용하여 주식 데이터를 가공하고, 설정된 기술적 지표(현재 이동평균선 전략 포함)에 따라 매수/매도 신호를 자동 생성합니다. 더불어 증권사 API 연동을 통해 자동화된 주문 실행을 목표로 하고 있습니다.
+---
 
-또한 Google Gemini API를 통합하여, 단순 룰 기반 자동 매매뿐 아니라 AI 기반 시장 분석 및 프로젝트 코드 개발을 즉각적으로 지원받을 수 있는 확장성 있는 구조를 갖추고 있습니다.
+## 🛡 핵심 방어 가이드라인 (Defense Mechanisms)
 
-## 🛠️ 기술 스택 
+실전 매매에서 알고리즘 오작동이나 휩쏘(Whipsaw), 통신 오류로 인해 계좌가 녹아내리는 것을 막기 위한 필수 안전장치들이 탑재되어 있습니다.
 
-- **언어**: Python 3
-- **데이터 핸들링**: Pandas, Numpy
-- **금융 데이터 소스**: PyKrx, Requests
-- **인공지능(AI)**: Google Generative AI (Gemini 2.5 Flash)
-- **기타 설정 관리**: Python-dotenv
-- **UI (CLI)**: Rich (의존성 패키지)
+1. **미체결 주문 생애주기 관리 (Unfilled Order Lifecycle)**
+   *   지정가 주문 또는 호가 차이로 인해 주문이 체결되지 않고 대기(Pending) 중일 경우 자산 동결을 막습니다. 
+   *   **타임아웃(3분)** 초과 시 해당 주문을 강제 취소(Cancel) 처리하고 다음 기회를 노립니다.
+2. **일일 종목 매수 횟수 제한 (Overtrading Prevention)**
+   *   차트가 박스권에서 횡보하며 발생시키는 잦은 신호(휩쏘)에 속아 수수료를 탕진하는 것을 막습니다.
+   *   한 종목에 대해 하루 최대 3회까지만 매수에 진입합니다. (매일 자정에 초기화)
+   *   **주의:** 자산 보호를 위해 수익 실현 및 손절 등 '매도' 로직에는 횟수 제한을 전면 해제해 두었습니다.
+3. **대세 하락장 접근 금지 (Macro Filter Lock-on)**
+   *   떨어지는 칼날(역추세 로직)을 잡는 전략의 경우, 거시 경제가 붕괴(예: 코로나, 서브프라임)하는 대폭락장에서 계속 물을 타다 파산할 위험이 있습니다.
+   *   **S&P 500의 200일 이동평균선**이 현재가보다 위에 있는 '대세 하락장'에서는 특정 전략의 작동을 원천 강제 차단합니다.
+4. **오버나잇 배제 (Timecut)**
+   *   단기 돌파 전략이 장기 보유 리스크에 노출되는 것을 막기 위해, 매일 장 종료 직전(오후 3시 15분)에 해당 전략의 잔량을 시장가로 전량 강제 매도합니다.
+5. **통신 에러 재시도 방어벽 (Exponential Backoff)**
+   *   증권사 서버 점검이나 일시적인 단절(429 Too Many Requests) 시 봇이 꺼지지 않고 대기 간격을 늘려가며 자동 재시도합니다.
 
-## 📁 프로젝트 구조 및 주요 파일
+---
+
+## ⚙️ 멀티 전략 3대 병렬 아키텍처 (How It Works)
+
+이 봇은 3개의 독립적인 퀀트 전략이 한 계좌 안에서 서로 자금을 빼앗거나 간섭하지 않고 동시에 구동되는 **전략 토너먼트 라우터** 구조를 갖습니다.
+
+1. **데이터 페어링 (Single Data Fetch)**:
+   *   1분마다 봇이 동작할 때, API 과부하를 막기 위해 시장 데이터(타겟 종목, S&P 500)를 한 번만 다운로드합니다.
+2. **전략 병렬 검사 (Strategy Evaluators)**:
+   *   **전략 A (클래식 돌파)**: 래리 윌리엄스 변동성 돌파 타점 계산 + 종가 무조건 청산(Timecut).
+   *   **전략 B (하이브리드 돌파)**: 전략 A 로직 + 이동평균선(MA20) 상승장 필터 + 전일 거래량 2배 폭발 필터 적용. (가장 까다롭고 안전한 진입)
+   *   **전략 C (낙폭 과대 스윙)**: 대세 상승장 필터(SPY 200MA) + 볼린저 밴드 하단 이탈 + RSI 30 미만 과매도 시 진입.
+3. **장부 분리 (Position Isolating)**:
+   *   각 전략은 자기만의 예산(`TRADE_AMOUNT_STRAT_A` 등)과 내부 기록 꼬리표(`positions["STRAT_A"]` 등)를 가져, 본인이 산 주식만 관리하고 매도합니다.
+
+---
+
+## 📁 프로젝트 구조 (Directory Structure)
 
 ```text
 quant_bot/
-├── main.py               # 프로그램 진입점 (자동 매매 루프 실행)
-├── quant_logic.py        # 퀀트 분석 및 매매 판단 로직 (이동평균선 기반)
-├── gemini_pro.py         # AI 퀀트/코딩 어시스턴트 CLI (코드 작성 및 파일 자동생성 지원)
-├── config/               
-│   └── settings.py       # 시뮬레이션 모드, 익절/손절 비율 등 설정 파일
-├── utils/                
-│   ├── api_handler.py    # 증권사 API 연동 및 시장 데이터 수집 유틸
-│   └── notifier.py       # 애플리케이션 로그, 매매 결과 알림 (Discord/Slack 등 연동 예상)
-├── README.md             # 프로젝트 개요 및 설명
-├── requirements.txt      # 파이썬 의존성 패키지 목록
-└── .env                  # API KEY 등 민감한 환경변수 설정 파일 (git 적용 제외 권장)
+├── main.py                     # [진입점] 분 단위 백그라운드 스케줄러 실행
+├── config.py                   # [설정 센터] API 키, 종목 심볼, 예산 및 방어 파라미터 세팅
+├── quant_logic.py              # [핵심 로거] 3개 분할 전략의 매매 조건 및 장부를 관리하는 라우터
+├── utils/                      # [기능 모듈 툴박스]
+│   ├── broker_api_client.py    # 증권사 API 통신 클라이언트 (재시도 및 주문/취소 담당)
+│   ├── market_data.py          # 과거 캔들/지수 데이터 일괄 다운로드 엔진 (yfinance)
+│   ├── indicators.py           # Pandas, TA를 확용한 보조지표(RSI, MA, BB 등) 수학 계산기
+│   └── logger.py               # 콘솔 출력 및 trading_bot.log 파일 기록 블랙박스
+├── .env                        # [보안 파일] 증권사 API 키 관리 (GitHub 업로드 절대 금지)
+└── README.md                   # 프로젝트 설명 및 가이드
 ```
 
-### 핵심 모듈 세부 설명
-*   **`main.py`**: 초기 시스템이 구동되며 관종 리스트(`WATCHLIST`) 주식을 감시합니다. 무한루프를 돌며 정해진 주기마다 현재 자산 상태를 갱신하고 `quant_logic` 객체를 통해 매매를 결정합니다.
-*   **`quant_logic.py (QuantStrategy)`**: 주가 과거 데이터를 조회해(MA20) 이동평균선을 비롯한 지표를 계산합니다. 설정된 `TARGET_PROFIT_RATE`, `STOP_LOSS_RATE`에 도달하면 이익/손절매를 트리거합니다.
-*   **`gemini_pro.py`**: 개발 생산성을 높이기 위한 AI 챗봇입니다. 콘솔(CLI)에서 자연어 대화로 지시하면 퀀트 로직 파이썬 파일이나 리포트를 자동으로 프로젝트 폴더에 생성 및 저장해 줍니다. 
+---
 
-## ⚙️ 실행 방법 (Usage)
+## 🚀 시작하기 (Getting Started)
 
-**(1) 필요 패키지 설치**
-```bash
-pip install -r requirements.txt
-pip install rich # gemini_pro.py UI 전용
-```
-
-**(2) 환경 설정 (.env)**
-프로젝트 루트 디렉토리에 `.env` 파일을 생성하고 아래와 같이 필요한 키값을 세팅해야 합니다.
-```env
-GEMINI_API_KEY="본인의_제미나이_API_KEY 입력"
-# 이 외에 증권사 API 설정 등
-```
-
-**(3) 스크립트 실행**
-- **매매 봇 실행**:
-```bash
-python main.py
-```
-- **Gemini 코딩 어시스턴트(멘토) 실행**:
-```bash
-python gemini_pro.py
-```
-
-## 📝 향후 업데이트 예정(To-Do)
-
-- [ ] `main.py`에 실제 시장 개장 시간에 맞춘 크론 무한루프 구동 추가
-- [ ] 하드코딩된 관심 종목 리스트(`WATCHLIST`)를 DB 연동 또는 JSON 방식으로 동적으로 분리
-- [ ] `quant_logic.py` 내 볼린저밴드, RSI, MACD 등 다양한 전략 추가
-- [ ] Gemini API를 활용하여 포트폴리오 다각화 아이디어 도출 등 투자 핵심 의사 결정 자동화
+1. **환경 세팅**:
+   Python 3.8 이상이 필요합니다. 필수 분석 패키지를 설치합니다.
+   ```bash
+   pip install requests python-dotenv schedule pandas numpy ta yfinance
+   ```
+2. **.env 파일 설정**:
+   증권사에서 발급받은 API 키를 루트 디렉토리의 `.env` 파일에 기입합니다.
+   ```env
+   BROKER_API_KEY="본인키"
+   BROKER_SECRET_KEY="본인시크릿"
+   BROKER_ACCOUNT_ID="계좌번호"
+   IS_SIMULATION_MODE="true"
+   ```
+3. **실행**:
+   ```bash
+   python main.py
+   ```
+   *`trading_bot.log` 파일을 통해 봇의 행동을 실시간으로 추적할 수 있습니다.*
