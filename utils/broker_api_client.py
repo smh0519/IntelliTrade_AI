@@ -75,8 +75,10 @@ class BrokerAPIClient:
         (실제 증권사 API 엔드포인트와 응답 형식에 맞춰 구현해야 합니다.)
         """
         if self.is_simulation_mode:
-            logger.info("시뮬레이션 모드: 가상 계좌 잔고를 반환합니다.")
-            return {"cash": 1000000, "currency": "USD"} # 예시
+            import utils.mock_account as mock
+            data = mock.get_virtual_balance()
+            logger.info(f"시뮬레이션 모드: 가상 계좌 잔고를 반환합니다. ({data['cash']} {data['currency']})")
+            return data
         
         url = f"{self.base_url}/v1/accounts/{self.account_id}/balance"
         try:
@@ -100,10 +102,16 @@ class BrokerAPIClient:
         (실제 증권사 API 엔드포인트와 응답 형식에 맞춰 구현해야 합니다.)
         """
         if self.is_simulation_mode:
-            logger.info(f"시뮬레이션 모드: {symbol}의 가상 현재가를 반환합니다.")
-            # 실제 시장 가격과 유사하게 랜덤 또는 고정 값 반환
-            import random
-            return {"price": round(random.uniform(150.0, 160.0), 2), "currency": "USD"} # 예시
+            try:
+                import yfinance as yf
+                ticker = yf.Ticker(symbol)
+                # fast_info를 통해 현재 가장 최신의 미국장 시세를 가져옵니다.
+                price = ticker.fast_info['lastPrice']
+                logger.info(f"시뮬레이션 모드 (Live): {symbol}의 실시간 현재가 -> {price:.2f} USD")
+                return {"price": round(price, 2), "currency": "USD"}
+            except Exception as e:
+                logger.error(f"시뮬레이션 라이브 시세 조회 실패: {e}")
+                return None
             
         url = f"{self.base_url}/v1/market/quotes/{symbol}"
         try:
@@ -117,7 +125,7 @@ class BrokerAPIClient:
             return None
 
     @handle_broker_errors()
-    def place_buy_order(self, symbol: str, quantity: float, price: float = None):
+    def place_buy_order(self, symbol: str, quantity: float, price: float = None, strategy_tag: str = "MANUAL"):
         """
         매수 주문을 실행합니다.
         (실제 증권사 API 엔드포인트와 요청/응답 형식에 맞춰 구현해야 합니다.)
@@ -130,13 +138,21 @@ class BrokerAPIClient:
             "quantity": quantity,
             "order_type": order_type,
             "price": price, # 지정가 주문일 경우에만 포함
-            "account_id": self.account_id
+            "account_id": self.account_id,
+            "strategy_tag": strategy_tag
         }
         
         if self.is_simulation_mode:
-            logger.info(f"시뮬레이션 모드: 매수 주문 실행 (종목: {symbol}, 수량: {quantity}, 가격: {price if price else '시장가'})")
-            # 가상 주문 ID 반환
-            return {"order_id": "SIM_BUY_ORDER_12345", "status": "filled", "executed_price": price if price else self.get_current_price(symbol)['price']}
+            logger.info(f"시뮬레이션 모드: 📝 매수 주문 실행 중... (종목: {symbol}, 수량: {quantity}, 전략: {strategy_tag})")
+            import utils.mock_account as mock
+            
+            # 지정가가 없으면 실시간 현재가로 매수
+            exec_price = price if price else self.get_current_price(symbol)['price']
+            res_price = mock.execute_virtual_buy(symbol, quantity, exec_price, strategy_tag)
+            
+            if res_price is None:
+                return None
+            return {"order_id": f"SIM_BUY_{int(time.time())}", "status": "filled", "executed_price": res_price}
 
         url = f"{self.base_url}/v1/orders"
         try:
@@ -150,10 +166,9 @@ class BrokerAPIClient:
             return None
 
     @handle_broker_errors()
-    def place_sell_order(self, symbol: str, quantity: float, price: float = None):
+    def place_sell_order(self, symbol: str, quantity: float, price: float = None, strategy_tag: str = "MANUAL"):
         """
         매도 주문을 실행합니다.
-        (실제 증권사 API 엔드포인트와 요청/응답 형식에 맞춰 구현해야 합니다.)
         """
         order_type = "market" if price is None else "limit"
         order_data = {
@@ -162,12 +177,20 @@ class BrokerAPIClient:
             "quantity": quantity,
             "order_type": order_type,
             "price": price,
-            "account_id": self.account_id
+            "account_id": self.account_id,
+            "strategy_tag": strategy_tag
         }
 
         if self.is_simulation_mode:
-            logger.info(f"시뮬레이션 모드: 매도 주문 실행 (종목: {symbol}, 수량: {quantity}, 가격: {price if price else '시장가'})")
-            return {"order_id": "SIM_SELL_ORDER_67890", "status": "filled", "executed_price": price if price else self.get_current_price(symbol)['price']}
+            logger.info(f"시뮬레이션 모드: 📝 매도 주문 실행 중... (종목: {symbol}, 수량: {quantity}, 전략: {strategy_tag})")
+            import utils.mock_account as mock
+            
+            exec_price = price if price else self.get_current_price(symbol)['price']
+            res_price = mock.execute_virtual_sell(symbol, quantity, exec_price, strategy_tag)
+            
+            if res_price is None:
+                return None
+            return {"order_id": f"SIM_SELL_{int(time.time())}", "status": "filled", "executed_price": res_price}
 
         url = f"{self.base_url}/v1/orders"
         try:

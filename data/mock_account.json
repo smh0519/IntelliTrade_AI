@@ -1,0 +1,10 @@
+{
+    "initial_cash": 10000.0,
+    "cash": 10000.0,
+    "currency": "USD",
+    "positions": {
+        "STRAT_A": {},
+        "STRAT_B": {},
+        "STRAT_C": {}
+    }
+}

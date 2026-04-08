@@ -14,14 +14,14 @@ UNFILLED_ORDER_ACTION = "cancel" # 미체결 타임아웃 도달 시 조치 방�
 
 # --- 전략 필터 파라미터 ---
 REQUIRE_VOLUME_SPIKE_MULTI = 2.0 # 전략 B 필터: 어제 거래량이 20일 평균의 몇 배 이상 터져야 하는지
-TIMECUT_HOUR = 15             # 전략 A 타임컷: 강제 매도 및 포지션 청산 시간 (시간)
-TIMECUT_MINUTE = 15           # 전략 A 타임컷: (분)
+TIMECUT_HOUR = 15             # 전략 A 타임컷: 뉴욕장 마감 5분 전(15시 55분) 청산
+TIMECUT_MINUTE = 55           # 전략 A 타임컷: (분)
 SP500_SYMBOL = "SPY"          # 전략 C 필터: 대세 하락장을 판별할 기준 마켓 ETF (S&P 500)
 
 # --- 시간 설정 ---
-TRADE_START_TIME = "09:00"    # 거래 시작 시간 (KST)
-TRADE_END_TIME = "15:20"      # 거래 종료 시간 (KST)
-TIMEZONE = "Asia/Seoul"       # 시간대 설정
+TRADE_START_TIME = "09:30"    # 정규장 시작 시간 (뉴욕 시간 기준)
+TRADE_END_TIME = "16:00"      # 정규장 종료 시간 (뉴욕 시간 기준)
+TIMEZONE = "America/New_York" # 기준 타임존 (서머타임 자동 적용)
 
 # --- 로깅 설정 ---
 LOG_LEVEL = "INFO"            # DEBUG, INFO, WARNING, ERROR, CRITICAL

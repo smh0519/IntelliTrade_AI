@@ -30,6 +30,9 @@ def main():
         logger.info("퀀트 전략이 1분마다 실행되도록 스케줄링되었습니다.")
         logger.info("프로그램이 실행 중입니다. Ctrl+C를 눌러 종료하세요.")
 
+        # 프로그램 시작 시 1분 딜레이를 기다리지 않고 즉시 대시보드 및 전략을 1회 가동합니다.
+        strategy.execute_strategy()
+
         while True:
             schedule.run_pending()
             time.sleep(1) # 1초마다 스케줄러 확인
