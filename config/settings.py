@@ -7,7 +7,7 @@ load_dotenv()
 # --- API Keys ---
 # 실제 사용 시에는 .env 파일에 저장하고 os.getenv()로 불러오는 것을 강력히 권장합니다.
 # 예: GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") # Gemini API 키 (gemini_pro.py에서 사용)
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY") # Claude API 키 (claude_assistant.py에서 사용)
 
 # --- Trading API Keys (예시: 증권사 API) ---
 # 실제 증권사 API 키와 시크릿은 여기에 직접 노출하지 말고 .env 파일에서 불러오세요.

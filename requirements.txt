@@ -1,6 +1,11 @@
 python-dotenv
 requests
-google-generativeai
+anthropic
 pandas
 numpy
 pykrx
+yfinance
+ta
+schedule
+pytz
+rich

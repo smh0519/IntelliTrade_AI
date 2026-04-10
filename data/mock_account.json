@@ -1,10 +1,15 @@
 {
     "initial_cash": 10000.0,
-    "cash": 10000.0,
+    "cash": 9817.645884949998,
     "currency": "USD",
     "positions": {
         "STRAT_A": {},
         "STRAT_B": {},
-        "STRAT_C": {}
+        "STRAT_C": {
+            "CRM": {
+                "qty": 0.59,
+                "avg_price": 168.78435
+            }
+        }
     }
 }

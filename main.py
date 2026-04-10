@@ -16,6 +16,11 @@ def main():
 
     # .env 파일에서 환경 변수 로드
     load_dotenv()
+    
+    # 모바일 텔레그램 부팅(연결 테스트) 알림 발송
+    import utils.telegram_bot as telebot
+    msg = "🤖 <b>[IntelliTrade AI 시스템 부팅]</b>\n\n텔레그램 연동 성공! 자동 매매 봇이 정상적으로 가동되어 지금부터 뉴욕 증시 감시를 시작합니다. 🚀"
+    telebot.send_telegram_message(msg)
 
     try:
         # 증권사 API 클라이언트 초기화
@@ -28,9 +33,14 @@ def main():
         # 실제 운영에서는 증권사 API 호출 제한 등을 고려하여 간격을 조정해야 합니다.
         schedule.every(1).minutes.do(strategy.execute_strategy)
         logger.info("퀀트 전략이 1분마다 실행되도록 스케줄링되었습니다.")
+        
+        schedule.every(1).hours.do(strategy.check_news_danger)
+        logger.info("AI 뉴스 마크맨이 1시간 주기로 뉴스 감식을 진행하도록 세팅되었습니다.")
+        
         logger.info("프로그램이 실행 중입니다. Ctrl+C를 눌러 종료하세요.")
 
-        # 프로그램 시작 시 1분 딜레이를 기다리지 않고 즉시 대시보드 및 전략을 1회 가동합니다.
+        # 프로그램 시작 시 1분 딜레이를 기다리지 않고 최조 1회 즉시 스캔
+        strategy.check_news_danger()
         strategy.execute_strategy()
 
         while True:
