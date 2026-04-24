@@ -1,13 +1,9 @@
 {
     "initial_cash": 10000.0,
-    "cash": 9516.323707999998,
+    "cash": 9641.446415349998,
     "currency": "USD",
     "positions": {
         "STRAT_A": {
-            "AMD": {
-                "qty": 0.41,
-                "avg_price": 245.08248
-            },
             "AVGO": {
                 "qty": 0.27,
                 "avg_price": 371.735775

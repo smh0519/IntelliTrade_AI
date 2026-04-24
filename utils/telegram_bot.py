@@ -1,5 +1,8 @@
 import os
+import time
+import threading
 import requests
+from datetime import datetime
 from dotenv import load_dotenv
 from utils.logger import logger
 
@@ -7,6 +10,7 @@ load_dotenv()
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
 
 def send_telegram_message(message: str):
     """
@@ -21,7 +25,7 @@ def send_telegram_message(message: str):
     payload = {
         "chat_id": TELEGRAM_CHAT_ID,
         "text": message,
-        "parse_mode": "HTML" # HTML 태그 (볼드체 등) 사용 가능
+        "parse_mode": "HTML",
     }
 
     try:
@@ -32,3 +36,134 @@ def send_telegram_message(message: str):
     except requests.exceptions.RequestException as e:
         logger.error(f"[Telegram] ❌ 알림 전송 실패: {e}")
         return False
+
+
+class TelegramCommandHandler:
+    """
+    텔레그램 명령어 폴링 핸들러.
+    별도 데몬 스레드에서 2초마다 업데이트를 확인하고 명령어를 처리합니다.
+
+    지원 명령어:
+      /start     - 봇 가동 (일시정지 해제와 동일)
+      /stop      - 봇 일시정지
+      /resume    - 봇 재가동
+      /status    - 현재 상태 및 가동 시간 조회
+      /emergency - 긴급 강제 정지 (프로세스 종료)
+    """
+
+    HELP_TEXT = (
+        "📋 <b>사용 가능한 명령어</b>\n\n"
+        "/start — 봇 가동\n"
+        "/stop — 봇 일시정지\n"
+        "/resume — 봇 재가동\n"
+        "/status — 현재 상태 확인\n"
+        "/emergency — 긴급 강제 정지\n"
+    )
+
+    def __init__(self, state):
+        self._state = state
+        self._offset = 0
+
+    def start_polling(self):
+        t = threading.Thread(target=self._poll_loop, daemon=True)
+        t.start()
+        logger.info("[Telegram] 명령어 폴링 핸들러 시작 (2초 간격)")
+
+    # ── 내부 메서드 ──────────────────────────────────────────
+
+    def _poll_loop(self):
+        while True:
+            try:
+                self._fetch_and_handle()
+            except Exception as e:
+                logger.error(f"[Telegram] 폴링 오류: {e}")
+            time.sleep(2)
+
+    def _fetch_and_handle(self):
+        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/getUpdates"
+        params = {"offset": self._offset, "timeout": 1}
+        resp = requests.get(url, params=params, timeout=10)
+        data = resp.json()
+
+        if not data.get("ok"):
+            return
+
+        for update in data.get("result", []):
+            self._offset = update["update_id"] + 1
+            self._handle_update(update)
+
+    def _handle_update(self, update):
+        message = update.get("message", {})
+        text = message.get("text", "").strip()
+        chat_id = str(message.get("chat", {}).get("id", ""))
+
+        if not text or not chat_id:
+            return
+
+        # 등록된 채팅 ID만 허용 (보안)
+        if chat_id != str(TELEGRAM_CHAT_ID):
+            logger.warning(f"[Telegram] 미등록 chat_id({chat_id}) 접근 차단")
+            return
+
+        command = text.split()[0].lower()
+        logger.info(f"[Telegram] 명령어 수신: {command}")
+
+        handlers = {
+            "/start":     self._cmd_start,
+            "/stop":      self._cmd_stop,
+            "/resume":    self._cmd_resume,
+            "/status":    self._cmd_status,
+            "/emergency": self._cmd_emergency,
+            "/help":      self._cmd_help,
+        }
+
+        handler = handlers.get(command)
+        if handler:
+            handler()
+        else:
+            send_telegram_message(
+                f"❓ 알 수 없는 명령어: <code>{command}</code>\n\n" + self.HELP_TEXT
+            )
+
+    # ── 명령어 핸들러 ─────────────────────────────────────────
+
+    def _cmd_start(self):
+        self._state.resume()
+        send_telegram_message(
+            "✅ <b>봇 가동</b>\n\n자동 매매 전략이 활성화되었습니다."
+        )
+
+    def _cmd_stop(self):
+        self._state.stop()
+        send_telegram_message(
+            "⏸ <b>봇 일시정지</b>\n\n"
+            "자동 매매 전략이 중단되었습니다.\n"
+            "/resume 으로 재가동할 수 있습니다."
+        )
+
+    def _cmd_resume(self):
+        self._state.resume()
+        send_telegram_message(
+            "▶️ <b>봇 재가동</b>\n\n자동 매매 전략이 다시 활성화되었습니다."
+        )
+
+    def _cmd_status(self):
+        is_active = self._state.is_active
+        status_icon = "🟢 활성" if is_active else "🔴 정지"
+        uptime = str(datetime.now() - self._state.start_time).split(".")[0]
+        send_telegram_message(
+            f"📊 <b>봇 상태 보고</b>\n\n"
+            f"상태: {status_icon}\n"
+            f"가동 시간: {uptime}"
+        )
+
+    def _cmd_emergency(self):
+        self._state.emergency_stop()
+        send_telegram_message(
+            "🚨 <b>긴급 정지 실행!</b>\n\n"
+            "모든 전략이 즉시 중단됩니다.\n"
+            "프로그램이 강제 종료됩니다."
+        )
+
+    def _cmd_help(self):
+        send_telegram_message(self.HELP_TEXT)
