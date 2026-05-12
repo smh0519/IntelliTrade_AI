@@ -180,8 +180,16 @@ class TradingStrategy:
 
         # 5. 리밸런싱 트리거 판단
         new_top10 = self.full_ranking[:TOP_N_PORTFOLIO]
+        holdings = self.rebalancer._get_holdings()
 
-        if self.rebalancer.should_rebalance_monthly():
+        if not holdings and not self.rebalancer.current_portfolio:
+            # 첫 실행: 포지션이 없으면 즉시 초기 포트폴리오 구성 (시간 제한 없음)
+            logger.info("🆕 [Strategy] 첫 실행 감지 — 초기 포트폴리오를 즉시 구성합니다.")
+            self.rebalancer.execute_rebalance(
+                new_top10, current_prices, reason="초기 포트폴리오 구성", force=True
+            )
+
+        elif self.rebalancer.should_rebalance_monthly():
             logger.info("📅 [Strategy] 월간 정기 리밸런싱 트리거 발동!")
             self.rebalancer.execute_rebalance(
                 new_top10, current_prices, reason="월간 정기 리밸런싱"
