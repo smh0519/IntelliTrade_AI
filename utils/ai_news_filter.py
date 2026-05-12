@@ -63,7 +63,7 @@ def analyze_stock_news(symbol: str) -> bool:
 다른 부가 설명은 절대 하지 마세요."""
 
         response = client.messages.create(
-            model="claude-opus-4-6",
+            model="claude-opus-4-5",
             max_tokens=16,
             system=system_prompt,
             messages=[

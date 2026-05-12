@@ -1,24 +1,8 @@
 {
     "initial_cash": 10000.0,
-    "cash": 9641.446415349998,
+    "cash": 10000.0,
     "currency": "USD",
     "positions": {
-        "STRAT_A": {
-            "AVGO": {
-                "qty": 0.27,
-                "avg_price": 371.735775
-            }
-        },
-        "STRAT_B": {},
-        "STRAT_C": {
-            "CRM": {
-                "qty": 0.6,
-                "avg_price": 165.432675
-            },
-            "ADBE": {
-                "qty": 0.44,
-                "avg_price": 225.61274999999998
-            }
-        }
+        "N10_MEW": {}
     }
 }

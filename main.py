@@ -11,19 +11,18 @@ from quant_logic import TradingStrategy
 
 
 def main():
-    logger.info("주식 자동 매매 프로그램 시작합니다.")
-
+    logger.info("IntelliTrade AI (N10-MEW) 시작합니다.")
     load_dotenv()
 
-    # 텔레그램 부팅 알림
     send_telegram_message(
-        "🤖 <b>[IntelliTrade AI 시스템 부팅]</b>\n\n"
-        "텔레그램 연동 성공! 자동 매매 봇이 정상적으로 가동되어 "
-        "지금부터 뉴욕 증시 감시를 시작합니다. 🚀\n\n"
+        "🤖 <b>[IntelliTrade AI N10-MEW 부팅 완료]</b>\n\n"
+        "📊 <b>전략:</b> Nasdaq 10 Momentum Equal Weight\n"
+        "🎯 <b>유니버스:</b> 나스닥 100 시가총액 상위 50\n"
+        "🔄 <b>리밸런싱:</b> 매월 첫 영업일 10:00 AM (NY)\n"
+        "🤖 <b>Physical AI 테마 우대 적용 중</b>\n\n"
         "📋 /help 로 명령어 목록을 확인하세요."
     )
 
-    # 텔레그램 명령어 폴링 핸들러 시작 (데몬 스레드)
     cmd_handler = TelegramCommandHandler(bot_state)
     cmd_handler.start_polling()
 
@@ -43,20 +42,20 @@ def main():
             else:
                 logger.info("[스케줄러] 봇 일시정지 상태 — 뉴스 감식 건너뜀")
 
-        schedule.every(1).minutes.do(run_strategy_if_active)
-        logger.info("퀀트 전략이 1분마다 실행되도록 스케줄링되었습니다.")
+        # N10-MEW: 1시간마다 랭킹 체크 (월 첫 영업일에 자동 리밸런싱, 이탈 감지)
+        schedule.every(1).hours.do(run_strategy_if_active)
+        logger.info("N10-MEW 전략이 1시간마다 실행되도록 스케줄링되었습니다.")
 
-        schedule.every(1).hours.do(run_news_check_if_active)
-        logger.info("AI 뉴스 마크맨이 1시간 주기로 뉴스 감식을 진행하도록 세팅되었습니다.")
+        # 뉴스 점검: 매주 월요일 09:00 (주간 1회)
+        schedule.every().monday.at("09:00").do(run_news_check_if_active)
+        logger.info("AI 뉴스 점검이 매주 월요일 09:00에 실행되도록 스케줄링되었습니다.")
 
         logger.info("프로그램이 실행 중입니다. Ctrl+C를 눌러 종료하세요.")
 
         # 최초 1회 즉시 실행
-        strategy.check_news_danger()
         strategy.execute_strategy()
 
         while True:
-            # 긴급 정지 플래그 감지 시 즉시 종료
             if bot_state.is_emergency:
                 logger.critical("[긴급 정지] 텔레그램 명령으로 강제 종료합니다.")
                 send_telegram_message("🚨 <b>프로그램이 강제 종료되었습니다.</b>")
@@ -71,7 +70,7 @@ def main():
     except Exception as e:
         logger.critical(f"프로그램 실행 중 치명적인 오류 발생: {e}", exc_info=True)
     finally:
-        logger.info("주식 자동 매매 프로그램이 종료됩니다.")
+        logger.info("IntelliTrade AI N10-MEW 종료됩니다.")
 
 
 if __name__ == "__main__":

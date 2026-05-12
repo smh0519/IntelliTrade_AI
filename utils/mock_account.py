@@ -21,20 +21,17 @@ def _init_mock_account():
                 pass
 
     if need_init:
-        # V2 체계: positions 하위에 전략명, 그 하위에 종목명 존재
         default_data = {
             "initial_cash": 10000.0,
             "cash": 10000.0,
             "currency": "USD",
             "positions": {
-                "STRAT_A": {},
-                "STRAT_B": {},
-                "STRAT_C": {}
+                "N10_MEW": {}
             }
         }
         with open(DATA_FILE, "w") as f:
             json.dump(default_data, f, indent=4)
-        logger.info("📄 [PaperTrading] 새로운 계층형(Tree) 가상 장부가 생성되었습니다.")
+        logger.info("📄 [PaperTrading] N10-MEW 가상 장부가 새로 생성되었습니다.")
 
 def get_virtual_balance():
     _init_mock_account()

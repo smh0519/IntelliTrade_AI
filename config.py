@@ -1,50 +1,44 @@
 # config.py
 
-# --- 거래(스캔) 대상 유니버스 ---
-# 나스닥/S&P 주요 메가테크 및 초우량주 약 30종 (매일 아침 이들 중 Top 5를 선별합니다)
+# --- 거래 유니버스: 나스닥 100 시가총액 상위 50 ---
 UNIVERSE_TICKERS = [
-    "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "BRK-B", "AVGO", "JPM",
-    "UNH", "V", "XOM", "MA", "JNJ", "PG", "HD", "MRK", "COST", "ABBV", 
-    "CRM", "AMD", "NFLX", "ADBE", "QCOM", "INTC", "CSCO", "PEP", "KO", "BAC"
+    # 메가캡 (1-10)
+    "AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "META", "TSLA", "AVGO", "COST", "NFLX",
+    # 대형 기술주 (11-20)
+    "ASML", "AMD", "QCOM", "ISRG", "CSCO", "TXN", "PEP", "ADBE", "AMAT", "INTU",
+    # 대형 기술주 (21-30)
+    "MU", "REGN", "LRCX", "KLAC", "MRVL", "PANW", "CRWD", "ADI", "AMGN", "ARM",
+    # 중대형주 (31-40)
+    "SNPS", "CDNS", "FTNT", "MELI", "CTAS", "ORLY", "ABNB", "MNST", "PAYX", "ROST",
+    # 중형주 (41-50)
+    "CPRT", "ON", "TEAM", "GEHC", "TTD", "VRSK", "IDXX", "DXCM", "WDAY", "ZS",
 ]
-# 총 투자금 300달러를 각 전략에 독립적으로 분배
-TRADE_AMOUNT_STRAT_A = 100    # 전략 A (래리 윌리엄스 돌파 + 타임컷) 예산
-TRADE_AMOUNT_STRAT_B = 100    # 전략 B (하이브리드 추세 돌파) 예산
-TRADE_AMOUNT_STRAT_C = 100    # 전략 C (볼린저 + RSI 과매도 스윙) 예산
-MIN_CASH_BALANCE = 500        # 최소 현금 잔고 (이 금액 이하이면 매수하지 않음)
-MAX_DAILY_BUYS_PER_SYMBOL = 3 # 종목별 하루 최대 허용 매수 횟수
-COOLDOWN_MINUTES = 60         # 한 번 매수한 종목 및 전략은 최소 60분 대기 (연속 매수 금지)
-DCA_PRICE_DROP_PCT = 0.02     # 추가 매수는 이전 투자 평단가보다 2% 이상 하락했을 때만 허용 (스마트 물타기)
-SLIPPAGE_TOLERANCE = 0.005    # 허용 가능한 슬리피지 (0.5%)
-ORDER_TIMEOUT_MINUTES = 3     # 주문 미체결 시 타임아웃 간격(분)
-UNFILLED_ORDER_ACTION = "cancel" # 미체결 타임아웃 도달 시 조치 방식 (cancel 등)
 
-# --- 전략 필터 파라미터 ---
-REQUIRE_VOLUME_SPIKE_MULTI = 2.0 # 전략 B 필터: 어제 거래량이 20일 평균의 몇 배 이상 터져야 하는지
-TIMECUT_HOUR = 15             # 전략 A 타임컷: 뉴욕장 마감 5분 전(15시 55분) 청산
-TIMECUT_MINUTE = 55           # 전략 A 타임컷: (분)
-SP500_SYMBOL = "SPY"          # 전략 C 필터: 대세 하락장을 판별할 기준 마켓 ETF (S&P 500)
+# --- N10-MEW 전략 파라미터 ---
+MOMENTUM_PERIOD_DAYS = 63        # 3개월 모멘텀 계산 기간 (약 63 영업일)
+TOP_N_PORTFOLIO = 10             # 포트폴리오 편입 종목 수
+REBALANCE_EXIT_RANK = 12         # 이 순위 밖으로 밀리면 즉시 교체
+WEIGHT_PER_STOCK = 0.10          # 종목당 동일 비중 (10%)
+REBALANCE_THRESHOLD = 0.02       # 비중 오차가 2% 이상일 때만 조정 (거래비용 절감)
+REBALANCE_EXECUTION_TIME = "10:00"  # 리밸런싱 집행 시각 (뉴욕 기준, 개장 30분 후)
 
-# --- 전략별 동적 익절/손절 (TP/SL) 한도 ---
-STRAT_A_TP = 0.05    # 전략 A 익절선 (+5%)
-STRAT_A_SL = -0.03   # 전략 A 손절선 (-3%)
-STRAT_B_TP = 0.08    # 전략 B 익절선 (+8%)
-STRAT_B_SL = -0.04   # 전략 B 손절선 (-4%)
-STRAT_C_TP = 0.04    # 전략 C 익절선 (+4%)
-STRAT_C_SL = -0.02   # 전략 C 손절선 (-2%)
+# --- 리스크 관리 ---
+PORTFOLIO_STOP_LOSS = -0.20      # 전체 포트폴리오 -20% 이탈 시 경고 알림
+MIN_CASH_BALANCE = 500           # 리밸런싱 후 유지할 최소 현금 잔고 ($)
+SLIPPAGE_TOLERANCE = 0.005       # 허용 슬리피지 (0.5%)
+
+# --- 주문 설정 ---
+ORDER_TIMEOUT_MINUTES = 5        # 미체결 주문 타임아웃 (분)
+UNFILLED_ORDER_ACTION = "cancel" # 타임아웃 시 조치: cancel
+
+# --- 벤치마크 ---
+BENCHMARK_SYMBOL = "QQQ"         # 성과 비교 벤치마크 (나스닥 100 ETF)
 
 # --- 시간 설정 ---
-TRADE_START_TIME = "09:30"    # 정규장 시작 시간 (뉴욕 시간 기준)
-TRADE_END_TIME = "16:00"      # 정규장 종료 시간 (뉴욕 시간 기준)
-TIMEZONE = "America/New_York" # 기준 타임존 (서머타임 자동 적용)
+TRADE_START_TIME = "09:30"       # 정규장 시작 (뉴욕 기준)
+TRADE_END_TIME = "16:00"         # 정규장 종료 (뉴욕 기준)
+TIMEZONE = "America/New_York"
 
-# --- 로깅 설정 ---
-LOG_LEVEL = "INFO"            # DEBUG, INFO, WARNING, ERROR, CRITICAL
-LOG_FILE_PATH = "trading_bot.log" # 로그 파일 경로
-
-# --- 기타 설정 ---
-# IS_SIMULATION_MODE는 .env에서 로드되므로 여기에 직접 정의하지 않습니다.
-# 하지만, .env에서 로드된 값을 참조하여 추가적인 설정을 할 수 있습니다.
-
-# 예시: 특정 증권사 API의 추가 설정 (필요시)
-# KOREA_EXCHANGE_CODE = "KRX"
+# --- 로깅 ---
+LOG_LEVEL = "INFO"
+LOG_FILE_PATH = "trading_bot.log"
