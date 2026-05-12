@@ -114,15 +114,17 @@ class N10MEWRebalancer:
     # ------------------------------------------------------------------ #
 
     def execute_rebalance(
-        self, new_top10: list, current_prices: dict, reason: str = "월간 정기 리밸런싱"
+        self, new_top10: list, current_prices: dict,
+        reason: str = "월간 정기 리밸런싱", force: bool = False
     ) -> bool:
         """
         리밸런싱 3단계:
           1. 탈락 종목 전량 매도  (현금 확보)
           2. 잔류 종목 과비중 매도 (비중 정규화)
           3. 신규/과소비중 종목 매수
+        force=True 이면 집행 시간 제한을 무시합니다 (초기 포트폴리오 구성 시).
         """
-        if not self._is_execution_window():
+        if not force and not self._is_execution_window():
             logger.info(
                 f"⏳ [Rebalancer] 집행 가능 시간이 아닙니다 "
                 f"({REBALANCE_EXECUTION_TIME} 이후부터 가능)."

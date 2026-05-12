@@ -13,10 +13,10 @@ sys.path.insert(0, ".")
 from config import UNIVERSE_TICKERS, MOMENTUM_PERIOD_DAYS, TOP_N_PORTFOLIO, WEIGHT_PER_STOCK
 
 # ── 백테스트 설정 ─────────────────────────────────────────────────
-BACKTEST_START   = date(2023, 5, 12)   # 투자 시작일 (3년 전)
+BACKTEST_START   = date(2021, 5, 12)   # 투자 시작일 (5년 전)
 BACKTEST_END     = date(2026, 5, 12)   # 종료일 (오늘)
 INITIAL_KRW      = 1_000_000
-KRW_USD_ENTRY    = 1_330               # 2023-05-12 기준 환율 (투자 시점)
+KRW_USD_ENTRY    = 1_120               # 2021-05-12 기준 환율 (투자 시점)
 KRW_USD_EXIT     = 1_370               # 2026-05-12 기준 환율 (회수 시점, 근사)
 INITIAL_USD      = INITIAL_KRW / KRW_USD_ENTRY
 SLIPPAGE         = 0.0005              # 거래당 편도 0.05% (수수료 + 슬리피지)
@@ -118,7 +118,8 @@ def _rebalance(prices: pd.DataFrame, as_of: pd.Timestamp,
 def run_backtest():
     print("=" * 64)
     print("  📊 N10-MEW 전략 백테스트 리포트")
-    print(f"  기간   : {BACKTEST_START} → {BACKTEST_END}  (3년)")
+    years_label = round((BACKTEST_END - BACKTEST_START).days / 365.25)
+    print(f"  기간   : {BACKTEST_START} → {BACKTEST_END}  ({years_label}년)")
     print(f"  초기자본: ₩{INITIAL_KRW:,}  (환율 {KRW_USD_ENTRY}₩/$  ≈  ${INITIAL_USD:,.2f})")
     print("=" * 64)
 
@@ -286,8 +287,8 @@ def run_backtest():
 
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 9),
                                         gridspec_kw={"height_ratios": [3, 1]})
-        fig.suptitle(f"N10-MEW Backtest  {BACKTEST_START} ~ {BACKTEST_END}  "
-                     f"(Initial: KRW {INITIAL_KRW:,} / ${INITIAL_USD:,.0f})",
+        fig.suptitle(f"N10-MEW Backtest  {BACKTEST_START} ~ {BACKTEST_END}  (5Y)"
+                     f"  |  Initial: KRW {INITIAL_KRW:,} / ${INITIAL_USD:,.0f}",
                      fontsize=13, fontweight="bold")
 
         # 수익률 곡선
