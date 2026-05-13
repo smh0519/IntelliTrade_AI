@@ -9,3 +9,4 @@ ta
 schedule
 pytz
 rich
+supabase

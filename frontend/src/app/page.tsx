@@ -1,19 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PortfolioSummary from "@/components/PortfolioSummary";
 import HoldingsList from "@/components/HoldingsList";
 import MomentumRankingCard from "@/components/MomentumRanking";
 import RebalanceStatus from "@/components/RebalanceStatus";
 import BottomNav from "@/components/BottomNav";
+import { fetchDashboardData } from "@/lib/api";
+import { DashboardData } from "@/lib/types";
 import { MOCK_DATA } from "@/lib/mockData";
 
 type Tab = "overview" | "holdings" | "momentum" | "rebalance";
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>("overview");
-  const { portfolio, momentum_ranking, rebalance_info, benchmarks } = MOCK_DATA;
+  const [data, setData] = useState<DashboardData>(MOCK_DATA);
+  const [loading, setLoading] = useState(true);
 
+  useEffect(() => {
+    fetchDashboardData().then((d) => {
+      setData(d);
+      setLoading(false);
+    });
+    // 5분마다 자동 갱신
+    const interval = setInterval(() => {
+      fetchDashboardData().then(setData);
+    }, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const { portfolio, momentum_ranking, rebalance_info, benchmarks } = data;
   const qqq = benchmarks.find((b) => b.ticker === "QQQ")?.return_pct ?? 0;
   const alpha = portfolio.total_pnl_pct - qqq;
 
@@ -26,10 +42,14 @@ export default function Home() {
             <h1 className="text-base font-bold tracking-tight">IntelliTrade AI</h1>
             <p className="text-xs text-slate-500">N10-MEW · 모의투자</p>
           </div>
-          <span className="flex items-center gap-1.5 text-xs text-emerald-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            Live
-          </span>
+          {loading ? (
+            <span className="text-xs text-slate-500 animate-pulse">불러오는 중...</span>
+          ) : (
+            <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              Live
+            </span>
+          )}
         </div>
       </header>
 

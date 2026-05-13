@@ -10,6 +10,7 @@ from config import (
 from utils.broker_api_client import BrokerAPIClient
 from utils.logger import logger
 import utils.telegram_bot as telebot
+import utils.supabase_client as supa
 from rebalancer import N10MEWRebalancer, STRATEGY_TAG
 
 
@@ -75,6 +76,18 @@ class TradingStrategy:
         for line in lines:
             logger.info(line)
         logger.info("=" * 58)
+
+        # Supabase 스냅샷 push
+        supa.push_portfolio_snapshot(
+            cash=cash,
+            total_value=total_value,
+            initial_cash=initial,
+            pnl_pct=total_pnl,
+            positions=holdings,
+            current_prices=current_prices,
+        )
+        if self.full_ranking:
+            supa.push_momentum_rankings(self.full_ranking, list(holdings.keys()))
 
         # 전체 포트폴리오 손실 경고
         if total_pnl <= PORTFOLIO_STOP_LOSS * 100:
