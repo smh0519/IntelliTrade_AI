@@ -43,9 +43,10 @@ def main():
             logger.error("[run_once] 랭킹 산출 실패, 종료합니다.")
             sys.exit(1)
 
-        new_top10 = full_ranking[:TOP_N_PORTFOLIO]
+        ranked_tickers = [r["ticker"] for r in full_ranking]
+        new_top10 = ranked_tickers[:TOP_N_PORTFOLIO]
         current_prices = {}
-        for sym in full_ranking:
+        for sym in ranked_tickers:
             price_info = broker.get_current_price(sym)
             if price_info:
                 current_prices[sym] = price_info.get("price")

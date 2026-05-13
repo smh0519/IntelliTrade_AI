@@ -74,10 +74,11 @@ def push_momentum_rankings(full_ranking: list, portfolio: list):
     rankings = [
         {
             "rank":         i + 1,
-            "ticker":       ticker,
-            "in_portfolio": ticker in portfolio,
+            "ticker":       r["ticker"],
+            "momentum_pct": r.get("momentum_pct", 0),
+            "in_portfolio": r["ticker"] in portfolio,
         }
-        for i, ticker in enumerate(full_ranking)
+        for i, r in enumerate(full_ranking)
     ]
 
     try:

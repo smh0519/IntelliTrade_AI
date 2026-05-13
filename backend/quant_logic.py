@@ -71,7 +71,8 @@ class TradingStrategy:
         logger.info(f"💰 총 자산: ${total_value:>10,.2f}  |  수익률: {total_pnl:>+6.2f}%")
         logger.info(f"💵 현금:   ${cash:>10,.2f}  |  보유 종목: {len(holdings)}개")
         if self.full_ranking:
-            logger.info(f"📈 모멘텀 Top 5: {self.full_ranking[:5]}")
+            top5 = [r["ticker"] for r in self.full_ranking[:5]]
+            logger.info(f"📈 모멘텀 Top 5: {top5}")
         logger.info("-" * 58)
         for line in lines:
             logger.info(line)
@@ -178,9 +179,12 @@ class TradingStrategy:
             logger.error("🚫 [Strategy] 랭킹 산출 실패. 이번 사이클을 건너뜁니다.")
             return
 
+        # full_ranking = [{"ticker": str, "momentum_pct": float}, ...]
+        ranked_tickers = [r["ticker"] for r in self.full_ranking]
+
         # 2. 현재가 일괄 조회
         current_prices = {}
-        for sym in self.full_ranking:
+        for sym in ranked_tickers:
             price_info = self.broker.get_current_price(sym)
             if price_info:
                 current_prices[sym] = price_info.get("price")
@@ -192,7 +196,7 @@ class TradingStrategy:
         self._check_pending_orders()
 
         # 5. 리밸런싱 트리거 판단
-        new_top10 = self.full_ranking[:TOP_N_PORTFOLIO]
+        new_top10 = ranked_tickers[:TOP_N_PORTFOLIO]
         holdings = self.rebalancer._get_holdings()
 
         rebalanced = False
@@ -210,7 +214,7 @@ class TradingStrategy:
             )
 
         elif self.rebalancer.current_portfolio:
-            drifted = self.rebalancer.check_rank_drift(self.full_ranking)
+            drifted = self.rebalancer.check_rank_drift(ranked_tickers)
             if drifted:
                 reason = f"랭킹 이탈 교체 ({', '.join(drifted)} → {REBALANCE_EXIT_RANK}위 밖)"
                 logger.warning(f"⚠️ [Strategy] {reason}")

@@ -58,10 +58,13 @@ def run_momentum_screener(tickers: list, top_n: int = 12) -> list:
 
     candidates.sort(key=lambda x: x["momentum"], reverse=True)
 
-    result = [c["ticker"] for c in candidates[:top_n]]
-    logger.info(f"✨ [Screener] 모멘텀 Top {top_n} 선정: {result}")
+    result = [
+        {"ticker": c["ticker"], "momentum_pct": round(c["momentum"] * 100, 2)}
+        for c in candidates[:top_n]
+    ]
+    logger.info(f"✨ [Screener] 모멘텀 Top {top_n} 선정: {[r['ticker'] for r in result]}")
 
-    for c in candidates[:5]:
-        logger.info(f"   {c['ticker']}: {c['momentum'] * 100:+.2f}% (3M 모멘텀)")
+    for r in result[:5]:
+        logger.info(f"   {r['ticker']}: {r['momentum_pct']:+.2f}% (3M 모멘텀)")
 
     return result

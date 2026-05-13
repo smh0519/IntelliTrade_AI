@@ -43,12 +43,12 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     );
 
     // ── 모멘텀 랭킹 ────────────────────────────────────────────────
-    const rawRankings: { rank: number; ticker: string; in_portfolio: boolean }[] =
+    const rawRankings: { rank: number; ticker: string; momentum_pct: number; in_portfolio: boolean }[] =
       ranking?.rankings ?? [];
     const momentum_ranking: MomentumRanking[] = rawRankings.map((r) => ({
       rank:         r.rank,
       ticker:       r.ticker,
-      momentum_pct: 0,
+      momentum_pct: r.momentum_pct ?? 0,
       in_portfolio: r.in_portfolio,
     }));
 
