@@ -16,6 +16,7 @@ on:
         options:
           - strategy
           - news
+          - force-rebalance
 
 permissions:
   contents: write
@@ -46,7 +47,7 @@ jobs:
         run: pip install -r backend/requirements.txt
 
       - name: Run strategy
-        if: github.event.schedule != '0 13 * * 1' && github.event.inputs.mode != 'news'
+        if: github.event.schedule != '0 13 * * 1' && github.event.inputs.mode != 'news' && github.event.inputs.mode != 'force-rebalance'
         working-directory: backend
         run: python run_once.py
         env:
@@ -60,6 +61,17 @@ jobs:
         if: github.event.schedule == '0 13 * * 1' || github.event.inputs.mode == 'news'
         working-directory: backend
         run: python run_once.py --news
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Force rebalance
+        if: github.event.inputs.mode == 'force-rebalance'
+        working-directory: backend
+        run: python run_once.py --force-rebalance
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
