@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "IntelliTrade AI",
-  description: "N10-MEW Quant Trading Bot Dashboard",
+  description: "N10-MEW 나스닥 모멘텀 퀀트 트레이딩 대시보드",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
