@@ -105,8 +105,12 @@ class BrokerAPIClient:
             try:
                 import yfinance as yf
                 ticker = yf.Ticker(symbol)
-                # fast_info를 통해 현재 가장 최신의 미국장 시세를 가져옵니다.
-                price = ticker.fast_info['lastPrice']
+                # history 1분봉 (prepost=True): 프리/애프터 마켓 포함 최신가
+                hist = ticker.history(period="1d", interval="1m", prepost=True)
+                if not hist.empty:
+                    price = float(hist["Close"].iloc[-1])
+                else:
+                    price = ticker.fast_info["lastPrice"]
                 logger.info(f"시뮬레이션 모드 (Live): {symbol}의 실시간 현재가 -> {price:.2f} USD")
                 return {"price": round(price, 2), "currency": "USD"}
             except Exception as e:
