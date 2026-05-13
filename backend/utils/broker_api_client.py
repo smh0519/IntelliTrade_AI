@@ -49,7 +49,7 @@ class BrokerAPIClient:
         self.base_url = os.getenv("BROKER_API_BASE_URL", "https://api.examplebroker.com") # 기본 URL 설정
         self.is_simulation_mode = os.getenv("IS_SIMULATION_MODE", "True").lower() == "true"
 
-        if not all([self.api_key, self.secret_key, self.account_id]):
+        if not self.is_simulation_mode and not all([self.api_key, self.secret_key, self.account_id]):
             logger.error("API 키, 시크릿 키, 계좌 ID가 .env 파일에 설정되지 않았습니다.")
             raise ValueError("API credentials not set.")
 
