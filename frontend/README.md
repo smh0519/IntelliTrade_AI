@@ -13,6 +13,10 @@ npm run dev      # 개발 서버 (http://localhost:3000)
 npm run build    # 프로덕션 빌드
 ```
 
+- `package.json`은 의존성 목록 파일입니다.
+- 실제 라이브러리 다운로드/설치는 `npm install` 실행 시 진행됩니다.
+- 최초 설치 후 `node_modules`가 생성되며, 이후 `npm run dev`로 실행합니다.
+
 ---
 
 ## 폴더 구조
@@ -20,26 +24,31 @@ npm run build    # 프로덕션 빌드
 ```
 frontend/
 ├── public/
-│   └── manifest.json          # PWA 매니페스트 (앱 이름, 아이콘, 테마색)
+│   └── manifest.json             # PWA 매니페스트 (앱 이름, 아이콘, 테마색)
 │
 ├── src/
 │   ├── app/
-│   │   ├── layout.tsx          # 루트 레이아웃 (PWA 메타태그, 폰트, 전역 스타일)
-│   │   ├── page.tsx            # 메인 페이지 (탭 라우팅 및 전체 화면 조합)
-│   │   └── globals.css         # 전역 CSS (Tailwind import, iOS safe-area 유틸)
+│   │   ├── layout.tsx            # 루트 레이아웃 (PWA 메타태그, 폰트, 전역 스타일)
+│   │   ├── page.tsx              # 메인 페이지 (탭 라우팅 및 전체 화면 조합)
+│   │   ├── globals.css           # 전역 CSS (Tailwind import, iOS safe-area 유틸)
+│   │   └── api/
+│   │       └── dashboard/
+│   │           └── route.ts      # 서버 API: Supabase에서 대시보드 데이터 조회
 │   │
 │   ├── components/
 │   │   ├── PortfolioSummary.tsx  # 포트폴리오 요약 카드 (총 자산, 수익률, 현금)
 │   │   ├── HoldingsList.tsx      # 보유 종목 목록 (종목별 수익률, 비중 바)
-│   │   ├── MomentumRanking.tsx   # 모멘텀 랭킹 리스트 (63일 기준 Top 12)
+│   │   ├── MomentumRanking.tsx   # 모멘텀 랭킹 리스트 (Top 12)
 │   │   ├── RebalanceStatus.tsx   # 리밸런싱 현황 + 지수 비교 바
 │   │   └── BottomNav.tsx         # 하단 탭 네비게이션
 │   │
 │   └── lib/
 │       ├── types.ts              # 공용 TypeScript 인터페이스 정의
-│       └── mockData.ts           # 개발용 목데이터 (실제 연동 전 사용)
+│       ├── api.ts                # API 응답 정규화 + 화면 데이터 매핑
+│       ├── supabase.ts           # Supabase 클라이언트 유틸
+│       └── mockData.ts           # API 실패 시 폴백용 목데이터
 │
-├── NEXTJS_SETUP.md             # Next.js 기본 설정 및 Vercel 배포 가이드
+├── NEXTJS_SETUP.md               # Next.js 기본 설정 및 Vercel 배포 가이드
 ├── package.json
 └── tsconfig.json
 ```
@@ -74,12 +83,12 @@ frontend/
 
 ### 3. 모멘텀 탭 (Momentum)
 
-스크리너가 산출한 63일 모멘텀 랭킹 전체를 보여줍니다.
+스크리너가 산출한 모멘텀 랭킹 전체를 보여줍니다.
 
-- 유니버스 50개 종목 중 **Top 12** 순위 표시
-- 각 종목의 **63일 수익률(%)** 을 가로 바 차트로 시각화
+- 랭킹 데이터 기준 **Top 12** 순위 표시
 - 현재 포트폴리오에 편입된 종목에 **'보유'** 배지 표시
 - 파란 배경으로 보유 종목을 비보유 종목과 시각적으로 구분
+- 현재 API 응답에는 수익률 수치가 없어 `momentum_pct`는 0으로 표기
 
 ---
 
@@ -96,17 +105,20 @@ frontend/
 ## 데이터 흐름
 
 ```
-현재 (개발 단계)
-  mockData.ts  →  page.tsx  →  각 컴포넌트
+현재 (구현 완료)
+  Next.js page.tsx
+    └─ /api/dashboard 호출 (5분 주기 자동 갱신)
 
-향후 (Supabase 연동 후)
-  Python 봇 (backend/)
-    └─ 매 1시간마다 실행
-    └─ 거래 결과를 Supabase PostgreSQL에 저장
-  
-  Next.js (frontend/)
-    └─ Supabase Client로 실시간 데이터 fetch
-    └─ page.tsx의 mockData → API 호출로 교체
+  /api/dashboard (route.ts)
+    └─ Supabase portfolio_snapshots / momentum_rankings / rebalance_log 조회
+
+  lib/api.ts
+    └─ 응답을 DashboardData 형태로 변환
+    └─ 데이터가 없거나 에러 발생 시 MOCK_DATA 폴백
+
+향후 개선
+  - benchmark/news/drift_alert 실데이터 연동
+  - momentum_pct 실수치 저장/표시
 ```
 
 ---
@@ -128,4 +140,15 @@ frontend/
 | 아이콘 | Lucide React |
 | 언어 | TypeScript |
 | 배포 | Vercel (예정) |
-| 데이터 | Mock → Supabase (예정) |
+| 데이터 | Supabase + Mock fallback |
+
+---
+
+## 현재 진행상황
+
+- 모바일 대시보드 UI(Overview/Holdings/Momentum/Rebalance) 구현 완료
+- `src/app/api/dashboard/route.ts` 서버 API로 Supabase 조회 경로 구성 완료
+- `src/lib/api.ts`에서 프론트 타입 변환 및 에러 폴백 로직 구현 완료
+- 5분 주기 자동 새로고침(`setInterval`) 반영 완료
+- PWA 매니페스트/메타 설정 적용 완료
+- 실시간 지표(벤치마크/뉴스/드리프트) 일부는 목데이터 기반으로 보강 중

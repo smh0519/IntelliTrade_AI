@@ -1,6 +1,6 @@
 # 📈 IntelliTrade AI — N10-MEW Quant Trading Bot
 
-이 프로젝트는 Python 기반의 자동 매매 시스템으로, **나스닥 100 모멘텀 동일가중(N10-MEW) 전략**을 중심으로 월간 포트폴리오 리밸런싱, Physical AI 테마 우대 선별, 실시간 모의투자(Paper Trading) 인프라, 그리고 텔레그램 모바일 알림망을 갖춘 완전한 실전형 퀀트 봇입니다.
+이 프로젝트는 Python 기반의 자동 매매 시스템으로, **나스닥 100 모멘텀 동일가중(N10-MEW) 전략**을 중심으로 월간 포트폴리오 리밸런싱, Physical AI 테마 우대 선별, 실시간 모의투자(Paper Trading) 인프라, 그리고 텔레그램 모바일 알림망을 갖춘 실전형 퀀트 봇입니다.
 
 ---
 
@@ -54,6 +54,14 @@
 - `JSON` 장부로 영구 상태 보존 — 재시작 시 그대로 복원
 - 초기 자본금 $10,000, `data/mock_account.json`으로 관리
 
+### 🗄️ 5. Supabase 데이터 적재
+전략 실행 결과를 Supabase로 적재해 프론트엔드 대시보드에서 조회할 수 있습니다.
+
+- 포트폴리오 스냅샷 저장: `portfolio_snapshots`
+- 모멘텀 랭킹 저장: `momentum_rankings`
+- 리밸런싱 이벤트 로그 저장: `rebalance_log`
+- 체결 거래 로그 저장: `trade_logs`
+
 ---
 
 ## 🛡 리스크 관리 (Defense Mechanisms)
@@ -71,27 +79,30 @@
 ## 📁 프로젝트 구조 (Directory Structure)
 
 ```text
-quant_bot/
+backend/
 ├── main.py                     # [진입점] 1시간 주기 전략 실행, 주간 뉴스 점검 스케줄
 ├── config.py                   # [설정 센터] 유니버스 50개, N10-MEW 파라미터, Physical AI 화이트리스트
 ├── quant_logic.py              # [전략 핸들러] 랭킹 산출·리밸런싱 트리거·대시보드 렌더링
 ├── rebalancer.py               # [리밸런싱 엔진] 월간/이탈 트리거 판단 및 3단계 거래 집행
-├── claude_assistant.py         # [AI 어시스턴트] Claude 기반 대화형 퀀트 개발 어시스턴트 CLI
+├── backtest.py                 # [백테스트] N10-MEW 성과 검증 스크립트
+├── setup_supabase.py           # [DB 준비] Supabase 테이블 초기화/검증 스크립트
+├── seed_supabase.py            # [DB 시드] 초기 샘플 데이터 적재 스크립트
+├── supabase_schema.sql         # [DB 스키마] Supabase 테이블 정의 SQL
 ├── config/
 │   └── settings.py             # [보조 설정] API 키, 로그 경로 등 확장 설정
 ├── data/
 │   └── mock_account.json       # [가상 장부] N10_MEW 버킷 기반 시뮬레이션 DB
 ├── utils/
 │   ├── screener.py             # [모멘텀 스크리너] 63일 수익률 기반 Top 12 랭킹 산출
-│   ├── telegram_bot.py         # [알림 모듈] 텔레그램 푸시 알림 발송
-│   ├── notifier.py             # [통합 알림] 슬랙 + 텔레그램 멀티채널 알림
+│   ├── telegram_bot.py         # [알림 모듈] 텔레그램 푸시 알림/명령 처리
 │   ├── mock_account.py         # [가상 DB] N10_MEW 포지션 장부 제어
 │   ├── ai_news_filter.py       # [LLM 모듈] Claude AI 기반 악재 뉴스 판별
 │   ├── broker_api_client.py    # [브로커 클라이언트] 실거래 및 가상 모드 라우팅
+│   ├── supabase_client.py      # [DB 클라이언트] 스냅샷/랭킹/거래 로그 저장
 │   ├── market_data.py          # [데이터 엔진] 과거 캔들 데이터 수집
 │   ├── indicators.py           # [보조지표] RSI, MA, 볼린저 밴드 등 계산 모듈
 │   └── logger.py               # [로거] 콘솔 출력 및 로그 파일 백업
-└── .env                        # [보안] API Key, 텔레그램 토큰, 시뮬레이션 모드 설정
+└── requirements.txt            # [의존성] 백엔드 패키지 목록
 ```
 
 ---
@@ -101,7 +112,7 @@ quant_bot/
 **1. 필수 패키지 설치**
 
 ```bash
-pip install requests python-dotenv schedule pandas numpy ta yfinance anthropic pytz
+pip install -r requirements.txt
 ```
 
 **2. 환경 변수 설정 (`.env`)**
@@ -114,6 +125,8 @@ TELEGRAM_CHAT_ID="채팅숫자아이디"
 BROKER_API_KEY="브로커키"
 BROKER_SECRET_KEY="브로커시크릿"
 BROKER_ACCOUNT_ID="계좌번호"
+SUPABASE_URL="https://xxxx.supabase.co"
+SUPABASE_SERVICE_ROLE_KEY="서비스롤키"
 ```
 
 **3. 봇 실행**
@@ -137,3 +150,15 @@ python main.py
 | `WEIGHT_PER_STOCK` | `0.10` | 종목당 동일 비중 |
 | `REBALANCE_THRESHOLD` | `0.02` | 비중 조정 최소 오차 기준 |
 | `PORTFOLIO_STOP_LOSS` | `-0.20` | 전체 포트폴리오 경고 손실률 |
+
+---
+
+## ✅ 현재 진행상황 (Progress)
+
+- N10-MEW 핵심 전략 루프(`main.py` + `quant_logic.py`) 구현 완료
+- 월간/이탈 기반 리밸런싱 엔진(`rebalancer.py`) 구현 완료
+- 모의투자 장부(`data/mock_account.json`) 기반 페이퍼 트레이딩 동작
+- 텔레그램 알림 및 명령 제어(시작/중지/상태 확인) 연동 완료
+- Supabase 적재 파이프라인(`utils/supabase_client.py`) 및 스키마 파일 구성 완료
+- 백테스트 스크립트(`backtest.py`)와 결과 이미지(`backtest_result.png`) 포함
+- 실거래 브로커 API 상세 구현/운영 환경 검증은 추가 작업 단계
