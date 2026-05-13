@@ -61,8 +61,8 @@ export default function Home() {
             {/* Quick stats */}
             <div className="grid grid-cols-3 gap-3">
               <QuickStat
-                label="수익률"
-                value={`${portfolio.total_pnl_pct >= 0 ? "+" : ""}${portfolio.total_pnl_pct.toFixed(1)}%`}
+                label="투자 수익"
+                value={`${portfolio.total_pnl_pct >= 0 ? "+" : ""}${portfolio.total_pnl_pct.toFixed(2)}%`}
                 color={portfolio.total_pnl_pct >= 0 ? "text-emerald-400" : "text-red-400"}
               />
               <QuickStat

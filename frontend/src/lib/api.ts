@@ -16,7 +16,13 @@ export async function fetchDashboardData(): Promise<DashboardData> {
       { qty: number; avg_price: number; current_price: number }
     > = snapshot.positions ?? {};
 
-    const totalValue: number = snapshot.total_value ?? 0;
+    // 주식 평가액 / 실제 매수금액 — 현금 제외
+    const stockValue = Object.values(positionsRaw).reduce(
+      (s, info) => s + info.qty * info.current_price, 0
+    );
+    const investedAmount = Object.values(positionsRaw).reduce(
+      (s, info) => s + info.qty * info.avg_price, 0
+    );
 
     const positions: Position[] = Object.entries(positionsRaw).map(
       ([ticker, info]) => {
@@ -31,7 +37,7 @@ export async function fetchDashboardData(): Promise<DashboardData> {
             info.avg_price > 0
               ? ((info.current_price - info.avg_price) / info.avg_price) * 100
               : 0,
-          weight: totalValue > 0 ? (value / totalValue) * 100 : 0,
+          weight: stockValue > 0 ? (value / stockValue) * 100 : 0,
         };
       }
     );
@@ -64,13 +70,17 @@ export async function fetchDashboardData(): Promise<DashboardData> {
 
     return {
       portfolio: {
-        initial_cash:  snapshot.initial_cash ?? 1000,
-        cash:          snapshot.cash ?? 0,
-        currency:      "USD",
-        total_value:   totalValue,
-        total_pnl_pct: snapshot.pnl_pct ?? 0,
+        initial_cash:    snapshot.initial_cash ?? 1000,
+        cash:            snapshot.cash ?? 0,
+        currency:        "USD",
+        invested_amount: investedAmount,
+        total_value:     stockValue,
+        total_pnl_pct:
+          investedAmount > 0
+            ? ((stockValue - investedAmount) / investedAmount) * 100
+            : 0,
         positions,
-        last_updated:  lastUpdated,
+        last_updated: lastUpdated,
       },
       momentum_ranking,
       rebalance_info: {

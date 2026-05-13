@@ -50,33 +50,36 @@ function buildPositions() {
     stockValue += value;
     return { ticker, qty, avg_price: avg, current_price: cur, value };
   });
-  const total = CASH + stockValue;
   return raw.map((p) => ({
     ...p,
     pnl_pct: ((p.current_price - p.avg_price) / p.avg_price) * 100,
-    weight:  (p.value / total) * 100,
+    weight:  stockValue > 0 ? (p.value / stockValue) * 100 : 0,
   }));
 }
 
 const PORTFOLIO_TICKERS = new Set(Object.keys(QTYS));
 
 export const MOCK_DATA: DashboardData = {
-  portfolio: {
-    initial_cash:  1000.0,
-    cash:          CASH,
-    currency:      "USD",
-    total_value: (() => {
-      const pos = buildPositions();
-      return CASH + pos.reduce((s, p) => s + p.value, 0);
-    })(),
-    total_pnl_pct: (() => {
-      const pos = buildPositions();
-      const total = CASH + pos.reduce((s, p) => s + p.value, 0);
-      return ((total - 1000) / 1000) * 100;
-    })(),
-    positions:    buildPositions(),
-    last_updated: "2026-05-13 (뉴욕)",
-  },
+  portfolio: (() => {
+    const positions = buildPositions();
+    const invested_amount = Object.keys(QTYS).reduce(
+      (s, t) => s + QTYS[t] * AVG_PRICES[t], 0
+    );
+    const total_value = positions.reduce((s, p) => s + p.value, 0);
+    const total_pnl_pct = invested_amount > 0
+      ? ((total_value - invested_amount) / invested_amount) * 100
+      : 0;
+    return {
+      initial_cash:   1000.0,
+      cash:           CASH,
+      currency:       "USD",
+      invested_amount,
+      total_value,
+      total_pnl_pct,
+      positions,
+      last_updated:   "2026-05-13 (뉴욕)",
+    };
+  })(),
 
   momentum_ranking: [
     { rank: 1,  ticker: "AMD",  momentum_pct: 109.9, in_portfolio: true  },

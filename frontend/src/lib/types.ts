@@ -12,8 +12,9 @@ export interface Portfolio {
   initial_cash: number;
   cash: number;
   currency: string;
-  total_value: number;
-  total_pnl_pct: number;
+  invested_amount: number;  // 실제 매수에 쓴 금액 (sum of qty * avg_price)
+  total_value: number;      // 주식 현재 평가액만 (현금 제외)
+  total_pnl_pct: number;    // (total_value - invested_amount) / invested_amount
   positions: Position[];
   last_updated: string;
 }
