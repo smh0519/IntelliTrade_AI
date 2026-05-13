@@ -72,11 +72,33 @@ class TelegramCommandHandler:
     # ── 내부 메서드 ──────────────────────────────────────────
 
     def _poll_loop(self):
+        backoff = 2
+        fail_count = 0
         while True:
             try:
                 self._fetch_and_handle()
+                # 성공 시 백오프 리셋
+                if backoff > 2:
+                    logger.info("[Telegram] 연결 복구됨. 폴링 정상화.")
+                backoff = 2
+                fail_count = 0
             except Exception as e:
-                logger.error(f"[Telegram] 폴링 오류: {e}")
+                fail_count += 1
+                if fail_count <= 3:
+                    logger.error(f"[Telegram] 폴링 오류: {e}")
+                elif fail_count == 4:
+                    logger.warning(
+                        f"[Telegram] 연속 {fail_count}회 실패. "
+                        f"연결 복구될 때까지 로그를 줄입니다. (재시도 간격: {backoff}초)"
+                    )
+                # 3회 초과 시 로그 생략 (60초마다 1회만 상태 출력)
+                elif fail_count % 30 == 0:
+                    logger.warning(
+                        f"[Telegram] 여전히 연결 불가. 연속 {fail_count}회 실패 중..."
+                    )
+                time.sleep(backoff)
+                backoff = min(backoff * 2, 60)  # 최대 60초
+                continue
             time.sleep(2)
 
     def _fetch_and_handle(self):
