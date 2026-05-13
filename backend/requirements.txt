@@ -10,3 +10,4 @@ schedule
 pytz
 rich
 supabase
+matplotlib
