@@ -5,6 +5,7 @@ from datetime import datetime, date
 from utils.logger import logger
 import utils.telegram_bot as telebot
 import utils.mock_account as mock
+import utils.supabase_client as supa
 from config import (
     WEIGHT_PER_STOCK, REBALANCE_THRESHOLD, REBALANCE_EXIT_RANK,
     ORDER_TIMEOUT_MINUTES, UNFILLED_ORDER_ACTION,
@@ -99,14 +100,18 @@ class N10MEWRebalancer:
         """매도 주문 실행 후 체결가 반환. 실패 시 None."""
         res = self.broker.place_sell_order(ticker, qty, strategy_tag=STRATEGY_TAG)
         if res and res.get("status") == "filled":
-            return res.get("executed_price")
+            price = res.get("executed_price")
+            supa.push_trade("sell", ticker, qty, price, STRATEGY_TAG)
+            return price
         return None
 
     def _place_buy(self, ticker: str, qty: float) -> float | None:
         """매수 주문 실행 후 체결가 반환. 실패 시 None."""
         res = self.broker.place_buy_order(ticker, qty, strategy_tag=STRATEGY_TAG)
         if res and res.get("status") == "filled":
-            return res.get("executed_price")
+            price = res.get("executed_price")
+            supa.push_trade("buy", ticker, qty, price, STRATEGY_TAG)
+            return price
         return None
 
     # ------------------------------------------------------------------ #
@@ -217,5 +222,11 @@ class N10MEWRebalancer:
             msg += f"\n📥 <b>매수:</b> {', '.join(bought_log)}"
 
         telebot.send_telegram_message(msg)
+        supa.push_rebalance_log(
+            reason=reason,
+            new_portfolio=new_top10,
+            sold_tickers=[s.split(" @")[0] for s in sold_log],
+            bought_tickers=[b.split(" @")[0] for b in bought_log],
+        )
         logger.info("✅ [Rebalancer] 리밸런싱 집행 완료.")
         return True

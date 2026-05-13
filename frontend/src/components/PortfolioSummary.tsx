@@ -9,6 +9,7 @@ interface Props {
 
 export default function PortfolioSummary({ portfolio }: Props) {
   const isPositive = portfolio.total_pnl_pct >= 0;
+  const pnlAmount = portfolio.total_value - portfolio.invested_amount;
 
   return (
     <div className="rounded-2xl bg-slate-900 border border-slate-800 p-5">
@@ -19,13 +20,17 @@ export default function PortfolioSummary({ portfolio }: Props) {
         </span>
       </div>
 
+      {/* 주식 평가액 (현금 제외) */}
       <div className="mt-3 flex items-end justify-between">
         <div>
           <p className="text-3xl font-bold tracking-tight">
             ${portfolio.total_value.toFixed(2)}
           </p>
           <p className="text-sm text-slate-500 mt-0.5">
-            초기자본 ${portfolio.initial_cash.toLocaleString()}
+            투자금 ${portfolio.invested_amount.toFixed(2)}
+            <span className={`ml-2 font-medium ${isPositive ? "text-emerald-400" : "text-red-400"}`}>
+              {isPositive ? "+" : ""}{pnlAmount.toFixed(2)}
+            </span>
           </p>
         </div>
         <div
@@ -43,7 +48,7 @@ export default function PortfolioSummary({ portfolio }: Props) {
 
       <div className="mt-4 grid grid-cols-2 gap-3">
         <StatCard
-          label="현금"
+          label="미투자 현금"
           value={`$${portfolio.cash.toFixed(2)}`}
           icon={<DollarSign size={14} />}
         />
