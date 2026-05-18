@@ -27,8 +27,6 @@ export default function MomentumRankingCard({ ranking }: Props) {
 }
 
 function RankRow({ item }: { item: MomentumRanking }) {
-  const maxMomentum = 40;
-  const barWidth = Math.min(100, (Math.abs(item.momentum_pct) / maxMomentum) * 100);
   const isPositive = item.momentum_pct >= 0;
 
   return (
@@ -44,30 +42,22 @@ function RankRow({ item }: { item: MomentumRanking }) {
       </span>
       <span className="text-sm font-semibold w-12">{item.ticker}</span>
 
-      {/* Momentum bar */}
-      <div className="flex-1 bg-slate-800 rounded-full h-1.5 overflow-hidden">
-        <div
-          className={`h-full rounded-full transition-all ${
-            isPositive ? "bg-emerald-500" : "bg-red-500"
-          }`}
-          style={{ width: `${barWidth}%` }}
-        />
-      </div>
-
-      <span
-        className={`text-xs font-mono w-14 text-right ${
-          isPositive ? "text-emerald-400" : "text-red-400"
-        }`}
-      >
-        {isPositive ? "+" : ""}
-        {item.momentum_pct.toFixed(1)}%
-      </span>
+      <span className="flex-1" />
 
       {item.in_portfolio && (
         <span className="text-xs bg-blue-900/60 text-blue-400 px-1.5 py-0.5 rounded-md">
           보유
         </span>
       )}
+
+      <span
+        className={`text-xs font-mono w-16 text-right ${
+          isPositive ? "text-emerald-400" : "text-red-400"
+        }`}
+      >
+        {isPositive ? "+" : ""}
+        {item.momentum_pct.toFixed(1)}%
+      </span>
     </div>
   );
 }

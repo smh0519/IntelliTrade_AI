@@ -27,6 +27,18 @@ export default function HoldingsList({ positions }: Props) {
 function HoldingRow({ pos }: { pos: Position }) {
   const isPositive = pos.pnl_pct >= 0;
 
+  const earningsLabel = (() => {
+    if (!pos.earnings_date) return null;
+    const daysUntil = Math.ceil(
+      (new Date(pos.earnings_date).getTime() - new Date().setHours(0, 0, 0, 0)) / 86400000
+    );
+    if (daysUntil < 0) return null;
+    const mmdd = pos.earnings_date.slice(5).replace("-", "/");
+    if (daysUntil === 0) return { text: `실적 D-Day (${mmdd})`, urgent: true };
+    if (daysUntil <= 7)  return { text: `실적 D-${daysUntil} (${mmdd})`, urgent: true };
+    return { text: `실적 ${mmdd}`, urgent: false };
+  })();
+
   return (
     <div className="flex items-center justify-between py-2.5 border-b border-slate-800/60 last:border-0">
       <div className="flex items-center gap-3 min-w-0">
@@ -45,6 +57,11 @@ function HoldingRow({ pos }: { pos: Position }) {
           <p className="text-xs text-slate-500">
             {pos.qty.toFixed(4)}주 · 평단 ${pos.avg_price.toFixed(2)}
           </p>
+          {earningsLabel && (
+            <p className={`text-xs mt-0.5 ${earningsLabel.urgent ? "text-amber-400" : "text-slate-500"}`}>
+              {earningsLabel.text}
+            </p>
+          )}
         </div>
       </div>
 

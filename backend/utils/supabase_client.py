@@ -116,6 +116,30 @@ def push_trade(
         logger.error(f"[Supabase] 거래 기록 실패: {e}")
 
 
+# ── 실적 캘린더 ──────────────────────────────────────────────────────
+
+def push_earnings_calendar(earnings: dict):
+    """
+    {ticker: 'YYYY-MM-DD' or None} 형태를 earnings_calendar 테이블에 upsert합니다.
+    """
+    client = _get_client()
+    if not client:
+        return
+
+    rows = [
+        {"ticker": ticker, "earnings_date": date_str, "updated_at": datetime.utcnow().isoformat()}
+        for ticker, date_str in earnings.items()
+    ]
+    if not rows:
+        return
+
+    try:
+        client.table("earnings_calendar").upsert(rows, on_conflict="ticker").execute()
+        logger.info(f"☁️  [Supabase] 실적 캘린더 저장 완료 ({len(rows)}개)")
+    except Exception as e:
+        logger.error(f"[Supabase] 실적 캘린더 저장 실패: {e}")
+
+
 # ── 리밸런싱 이력 ────────────────────────────────────────────────────
 
 def push_rebalance_log(

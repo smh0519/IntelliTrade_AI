@@ -29,7 +29,7 @@ export default function Home() {
     return () => clearInterval(interval);
   }, []);
 
-  const { portfolio, momentum_ranking, rebalance_info, benchmarks } = data;
+  const { portfolio, momentum_ranking, rebalance_info, benchmarks, earnings_alerts } = data;
   const qqq = benchmarks.find((b) => b.ticker === "QQQ")?.return_pct ?? 0;
   const alpha = portfolio.total_pnl_pct - qqq;
 
@@ -98,6 +98,34 @@ export default function Home() {
                 ))}
               </div>
             </div>
+
+            {/* Earnings alerts */}
+            {earnings_alerts.length > 0 && (
+              <div className="rounded-2xl bg-amber-950/30 border border-amber-800/50 p-4">
+                <p className="text-xs text-amber-400 uppercase tracking-widest mb-3 font-semibold">
+                  실적 발표 예정
+                </p>
+                <div className="space-y-2">
+                  {earnings_alerts.map((a) => (
+                    <div key={a.ticker} className="flex items-center justify-between">
+                      <span className="text-sm font-semibold">{a.ticker}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-slate-400">
+                          {a.earnings_date.slice(5).replace("-", "/")}
+                        </span>
+                        <span className={`text-xs font-mono px-2 py-0.5 rounded-md font-semibold ${
+                          a.days_until === 0
+                            ? "bg-red-900/60 text-red-300"
+                            : "bg-amber-900/60 text-amber-300"
+                        }`}>
+                          {a.days_until === 0 ? "D-Day" : `D-${a.days_until}`}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Drift alert */}
             {rebalance_info.drift_alerts.length > 0 && (

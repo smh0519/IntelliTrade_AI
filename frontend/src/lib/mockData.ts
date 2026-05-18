@@ -52,8 +52,9 @@ function buildPositions() {
   });
   return raw.map((p) => ({
     ...p,
-    pnl_pct: ((p.current_price - p.avg_price) / p.avg_price) * 100,
-    weight:  stockValue > 0 ? (p.value / stockValue) * 100 : 0,
+    pnl_pct:       ((p.current_price - p.avg_price) / p.avg_price) * 100,
+    weight:        stockValue > 0 ? (p.value / stockValue) * 100 : 0,
+    earnings_date: null,
   }));
 }
 
@@ -103,7 +104,8 @@ export const MOCK_DATA: DashboardData = {
     status:       "healthy",
   },
 
-  news_alerts: [],
+  news_alerts:     [],
+  earnings_alerts: [],
 
   benchmarks: [
     { label: "Nasdaq 100", ticker: "QQQ", return_pct:  1.8 },

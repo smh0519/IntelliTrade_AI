@@ -11,6 +11,7 @@ from utils.broker_api_client import BrokerAPIClient
 from utils.logger import logger
 import utils.telegram_bot as telebot
 import utils.supabase_client as supa
+from utils.earnings import fetch_earnings_dates
 from rebalancer import N10MEWRebalancer, STRATEGY_TAG
 
 
@@ -89,6 +90,10 @@ class TradingStrategy:
         )
         if self.full_ranking:
             supa.push_momentum_rankings(self.full_ranking, list(holdings.keys()))
+
+        # 실적 캘린더 갱신 (보유 종목)
+        earnings = fetch_earnings_dates(list(holdings.keys()))
+        supa.push_earnings_calendar(earnings)
 
         # 전체 포트폴리오 손실 경고
         if total_pnl <= PORTFOLIO_STOP_LOSS * 100:

@@ -41,6 +41,15 @@ CREATE TABLE IF NOT EXISTS rebalance_log (
   bought_tickers TEXT[] DEFAULT '{}'
 );
 
+-- 5. 실적 캘린더 (보유 종목 다음 실적 발표일)
+CREATE TABLE IF NOT EXISTS earnings_calendar (
+  ticker        TEXT PRIMARY KEY,
+  earnings_date DATE,
+  updated_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE earnings_calendar DISABLE ROW LEVEL SECURITY;
+
 -- 인덱스 (최신 데이터 조회 최적화)
 CREATE INDEX IF NOT EXISTS idx_portfolio_snapshots_created_at ON portfolio_snapshots (created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_momentum_rankings_created_at   ON momentum_rankings (created_at DESC);

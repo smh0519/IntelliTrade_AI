@@ -6,6 +6,13 @@ export interface Position {
   value: number;
   pnl_pct: number;
   weight: number;
+  earnings_date: string | null;
+}
+
+export interface EarningsAlert {
+  ticker: string;
+  earnings_date: string;
+  days_until: number;
 }
 
 export interface Portfolio {
@@ -52,4 +59,5 @@ export interface DashboardData {
   rebalance_info: RebalanceInfo;
   news_alerts: NewsAlert[];
   benchmarks: BenchmarkReturn[];
+  earnings_alerts: EarningsAlert[];
 }

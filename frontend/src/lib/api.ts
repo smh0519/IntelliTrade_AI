@@ -1,4 +1,4 @@
-import { DashboardData, Position, MomentumRanking } from "./types";
+import { DashboardData, Position, MomentumRanking, EarningsAlert } from "./types";
 import { MOCK_DATA } from "./mockData";
 
 export async function fetchDashboardData(): Promise<DashboardData> {
@@ -6,14 +6,14 @@ export async function fetchDashboardData(): Promise<DashboardData> {
     const res = await fetch("/api/dashboard", { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    const { snapshot, ranking, rebalance } = await res.json();
+    const { snapshot, ranking, rebalance, benchmarks: apiBenchmarks } = await res.json();
 
     if (!snapshot) return MOCK_DATA;
 
     // ── 포트폴리오 ─────────────────────────────────────────────────
     const positionsRaw: Record<
       string,
-      { qty: number; avg_price: number; current_price: number }
+      { qty: number; avg_price: number; current_price: number; earnings_date?: string | null }
     > = snapshot.positions ?? {};
 
     // 주식 평가액 / 실제 매수금액 — 현금 제외
@@ -37,10 +37,24 @@ export async function fetchDashboardData(): Promise<DashboardData> {
             info.avg_price > 0
               ? ((info.current_price - info.avg_price) / info.avg_price) * 100
               : 0,
-          weight: stockValue > 0 ? (value / stockValue) * 100 : 0,
+          weight:        stockValue > 0 ? (value / stockValue) * 100 : 0,
+          earnings_date: info.earnings_date ?? null,
         };
       }
     );
+
+    // ── 실적 발표 알림 (7일 이내) ──────────────────────────────────
+    const todayMs = new Date().setHours(0, 0, 0, 0);
+    const earnings_alerts: EarningsAlert[] = positions
+      .filter((p) => p.earnings_date != null)
+      .map((p) => {
+        const days_until = Math.ceil(
+          (new Date(p.earnings_date!).getTime() - todayMs) / 86400000
+        );
+        return { ticker: p.ticker, earnings_date: p.earnings_date!, days_until };
+      })
+      .filter((a) => a.days_until >= 0 && a.days_until <= 7)
+      .sort((a, b) => a.days_until - b.days_until);
 
     // ── 모멘텀 랭킹 ────────────────────────────────────────────────
     const rawRankings: { rank: number; ticker: string; momentum_pct: number; in_portfolio: boolean }[] =
@@ -89,8 +103,11 @@ export async function fetchDashboardData(): Promise<DashboardData> {
         drift_alerts:        [],
         status:              "healthy",
       },
-      news_alerts: [],
-      benchmarks:  MOCK_DATA.benchmarks,
+      news_alerts:     [],
+      benchmarks:      Array.isArray(apiBenchmarks) && apiBenchmarks.length > 0
+        ? apiBenchmarks
+        : MOCK_DATA.benchmarks,
+      earnings_alerts,
     };
   } catch (e) {
     console.error("[fetchDashboardData] 오류, 목데이터로 폴백:", e);
