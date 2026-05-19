@@ -12,7 +12,10 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-/* iOS safe area for bottom navigation */
+/* iOS safe area */
+.safe-area-pt {
+  padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);
+}
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }

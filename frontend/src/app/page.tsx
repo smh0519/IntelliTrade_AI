@@ -36,7 +36,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-slate-950 pb-24">
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-slate-950/90 backdrop-blur border-b border-slate-800 px-4 py-3">
+      <header className="safe-area-pt sticky top-0 z-10 bg-slate-950/90 backdrop-blur border-b border-slate-800 px-4 pb-3">
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-base font-bold tracking-tight">IntelliTrade AI</h1>
