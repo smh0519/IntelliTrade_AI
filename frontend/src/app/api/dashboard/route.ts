@@ -58,6 +58,64 @@ const BENCHMARKS = [
   { label: "Dow Jones",  ticker: "DIA" },
 ];
 
+// avg_price 기준으로 각 종목의 실제 매수 시점을 역산 → 포트폴리오 시작일 추정
+async function inferInceptionDate(
+  positions: Record<string, { qty: number; avg_price: number; current_price: number }>
+): Promise<Date> {
+  const FALLBACK = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000); // 90일 전
+  const period1 = Math.floor((Date.now() - 2 * 365 * 24 * 60 * 60 * 1000) / 1000); // 2년치
+  const period2 = Math.floor(Date.now() / 1000);
+
+  // 현재가가 avg_price보다 5% 이상 높은 종목만 사용 (상승한 종목에서만 매수일 역산 가능)
+  const candidates = Object.entries(positions).filter(
+    ([, p]) => p.avg_price > 0 && p.qty > 0 && p.current_price > p.avg_price * 1.05
+  );
+
+  if (candidates.length === 0) return FALLBACK;
+
+  const purchaseDates = await Promise.all(
+    candidates.map(async ([ticker, pos]) => {
+      try {
+        const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?period1=${period1}&period2=${period2}&interval=1d`;
+        const res = await fetch(url, {
+          headers: { "User-Agent": "Mozilla/5.0" },
+          signal: AbortSignal.timeout(8000),
+          next: { revalidate: 3600 },
+        });
+        if (!res.ok) return null;
+
+        const json = await res.json();
+        const result = json?.chart?.result?.[0];
+        if (!result) return null;
+
+        const timestamps: number[] = result.timestamp ?? [];
+        const closes: (number | null)[] = result.indicators?.quote?.[0]?.close ?? [];
+
+        // 뒤에서 앞으로 탐색 — 현재가 상승 전 마지막으로 avg_price 이하였던 날
+        const threshold = pos.avg_price * 1.02;
+        for (let i = timestamps.length - 1; i >= 0; i--) {
+          const c = closes[i];
+          if (c != null && c <= threshold) {
+            return new Date(timestamps[i] * 1000);
+          }
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    })
+  );
+
+  const validDates = purchaseDates.filter((d): d is Date => d != null);
+  if (validDates.length === 0) return FALLBACK;
+
+  // 포트폴리오 시작일 = 가장 이른 추정 매수일
+  const inception = new Date(Math.min(...validDates.map((d) => d.getTime())));
+  console.log("[inception] 추정 포트폴리오 시작일:", inception.toISOString().slice(0, 10),
+    "| 사용 종목:", candidates.map(([t]) => t).join(", "));
+  return inception;
+}
+
 async function fetchBenchmarkReturns(
   inceptionDate: Date
 ): Promise<{ label: string; ticker: string; return_pct: number }[]> {
@@ -96,7 +154,7 @@ export async function GET() {
   const client = getServerClient();
 
   try {
-    const [snapshotRes, rankingRes, rebalanceRes, inceptionRes] = await Promise.all([
+    const [snapshotRes, rankingRes, rebalanceRes] = await Promise.all([
       client
         .from("portfolio_snapshots")
         .select("*")
@@ -115,12 +173,6 @@ export async function GET() {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      client
-        .from("portfolio_snapshots")
-        .select("created_at")
-        .order("created_at", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
     ]);
 
     if (snapshotRes.error && snapshotRes.error.code !== "PGRST116") {
@@ -129,22 +181,24 @@ export async function GET() {
 
     const snapshot = snapshotRes.data ?? null;
     const tickers = snapshot ? Object.keys(snapshot.positions ?? {}) : [];
+    const positionsRaw = (snapshot?.positions ?? {}) as Record<
+      string,
+      { qty: number; avg_price: number; current_price: number; earnings_date?: string | null }
+    >;
 
-    // 포트폴리오 최초 스냅샷 날짜 기준으로 벤치마크 수익률 계산
-    const inceptionDate = inceptionRes.data?.created_at
-      ? new Date(inceptionRes.data.created_at)
-      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-
-    const [currentPrices, earningsDates, benchmarks] = await Promise.all([
+    // avg_price 역산으로 실제 매수 시점 추정 + 현재가/실적일 병렬 fetch
+    const [inceptionDate, currentPrices, earningsDates] = await Promise.all([
+      inferInceptionDate(positionsRaw),
       fetchCurrentPrices(tickers),
       fetchEarningsDatesFromSupabase(tickers),
-      fetchBenchmarkReturns(inceptionDate),
     ]);
+
+    const benchmarks = await fetchBenchmarkReturns(inceptionDate);
 
     // snapshot 포지션에 실시간가 + 실적일 덮어쓰기
     if (snapshot) {
       for (const [ticker, pos] of Object.entries(
-        snapshot.positions as Record<string, { current_price: number; earnings_date?: string | null }>
+        positionsRaw
       )) {
         if (currentPrices[ticker]) pos.current_price = currentPrices[ticker];
         pos.earnings_date = earningsDates[ticker] ?? null;

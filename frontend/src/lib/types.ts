@@ -47,6 +47,19 @@ export interface NewsAlert {
   timestamp: string;
 }
 
+export interface NewsItem {
+  id: string;
+  ticker: string | null;
+  headline: string;
+  summary_ko: string;
+  summary_en: string | null;
+  source: string;
+  url: string;
+  sentiment: "positive" | "negative" | "neutral";
+  published_at: string;
+  is_portfolio_related: boolean;
+}
+
 export interface BenchmarkReturn {
   label: string;
   ticker: string;

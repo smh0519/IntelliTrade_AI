@@ -12,6 +12,23 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 모달 슬라이드 업 애니메이션 */
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* 뉴스 카드 말줄임 */
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 /* iOS safe area */
 .safe-area-pt {
   padding-top: calc(env(safe-area-inset-top, 0px) + 0.75rem);

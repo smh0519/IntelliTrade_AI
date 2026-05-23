@@ -1,8 +1,8 @@
 "use client";
 
-import { BarChart2, List, Zap, RefreshCw } from "lucide-react";
+import { BarChart2, List, Zap, RefreshCw, Newspaper } from "lucide-react";
 
-type Tab = "overview" | "holdings" | "momentum" | "rebalance";
+type Tab = "overview" | "holdings" | "momentum" | "rebalance" | "news";
 
 interface Props {
   active: Tab;
@@ -14,6 +14,7 @@ const TABS: { id: Tab; label: string; Icon: React.ElementType }[] = [
   { id: "holdings",   label: "보유종목",  Icon: List       },
   { id: "momentum",   label: "모멘텀",   Icon: Zap        },
   { id: "rebalance",  label: "리밸런싱",  Icon: RefreshCw  },
+  { id: "news",       label: "뉴스",     Icon: Newspaper  },
 ];
 
 export default function BottomNav({ active, onChange }: Props) {

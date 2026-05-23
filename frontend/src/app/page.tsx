@@ -6,11 +6,12 @@ import HoldingsList from "@/components/HoldingsList";
 import MomentumRankingCard from "@/components/MomentumRanking";
 import RebalanceStatus from "@/components/RebalanceStatus";
 import BottomNav from "@/components/BottomNav";
+import NewsPage from "@/components/NewsPage";
 import { fetchDashboardData } from "@/lib/api";
 import { DashboardData } from "@/lib/types";
 import { MOCK_DATA } from "@/lib/mockData";
 
-type Tab = "overview" | "holdings" | "momentum" | "rebalance";
+type Tab = "overview" | "holdings" | "momentum" | "rebalance" | "news";
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>("overview");
@@ -40,7 +41,9 @@ export default function Home() {
         <div className="max-w-lg mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-base font-bold tracking-tight">IntelliTrade AI</h1>
-            <p className="text-xs text-slate-500">N10-MEW · 모의투자</p>
+            <p className="text-xs text-slate-500">
+              {tab === "news" ? "오늘의 마켓 이슈" : "N10-MEW · 모의투자"}
+            </p>
           </div>
           {loading ? (
             <span className="text-xs text-slate-500 animate-pulse">불러오는 중...</span>
@@ -152,6 +155,7 @@ export default function Home() {
             strategyReturn={portfolio.total_pnl_pct}
           />
         )}
+        {tab === "news" && <NewsPage />}
       </div>
 
       <BottomNav active={tab} onChange={(t) => setTab(t as Tab)} />

@@ -30,20 +30,26 @@ frontend/
 │   ├── app/
 │   │   ├── layout.tsx            # 루트 레이아웃 (PWA 메타태그, 폰트, 전역 스타일)
 │   │   ├── page.tsx              # 메인 페이지 (탭 라우팅 및 전체 화면 조합)
-│   │   ├── globals.css           # 전역 CSS (Tailwind import, iOS safe-area 유틸)
+│   │   ├── globals.css           # 전역 CSS (Tailwind import, iOS safe-area 유틸, 모달 애니메이션)
 │   │   └── api/
-│   │       └── dashboard/
-│   │           └── route.ts      # 서버 API: Supabase에서 대시보드 데이터 조회
+│   │       ├── dashboard/
+│   │       │   └── route.ts      # 서버 API: Supabase 대시보드 데이터 + 벤치마크 수익률
+│   │       └── news/
+│   │           ├── route.ts      # 서버 API: 네이버 뉴스 검색 → 종목별 한국어 뉴스 피드
+│   │           └── article/
+│   │               └── route.ts  # 서버 API: n.news.naver.com 기사 본문 크롤링
 │   │
 │   ├── components/
 │   │   ├── PortfolioSummary.tsx  # 포트폴리오 요약 카드 (총 자산, 수익률, 현금)
 │   │   ├── HoldingsList.tsx      # 보유 종목 목록 (종목별 수익률, 비중 바)
 │   │   ├── MomentumRanking.tsx   # 모멘텀 랭킹 리스트 (Top 12)
 │   │   ├── RebalanceStatus.tsx   # 리밸런싱 현황 + 지수 비교 바
-│   │   └── BottomNav.tsx         # 하단 탭 네비게이션
+│   │   ├── NewsPage.tsx          # 뉴스 피드 (필터 칩, 카드 목록, 새로고침)
+│   │   ├── NewsDetailModal.tsx   # 뉴스 상세 하단 시트 모달 (기사 본문 크롤링 표시)
+│   │   └── BottomNav.tsx         # 하단 탭 네비게이션 (5탭)
 │   │
 │   └── lib/
-│       ├── types.ts              # 공용 TypeScript 인터페이스 정의
+│       ├── types.ts              # 공용 TypeScript 인터페이스 정의 (NewsItem 포함)
 │       ├── api.ts                # API 응답 정규화 + 화면 데이터 매핑
 │       ├── supabase.ts           # Supabase 클라이언트 유틸
 │       └── mockData.ts           # API 실패 시 폴백용 목데이터
@@ -57,7 +63,7 @@ frontend/
 
 ## 페이지 구성 및 기능
 
-앱은 **하단 탭 4개**로 구성되며, 단일 페이지(`page.tsx`) 안에서 탭 전환으로 동작합니다.
+앱은 **하단 탭 5개**로 구성되며, 단일 페이지(`page.tsx`) 안에서 탭 전환으로 동작합니다.
 
 ### 1. 개요 탭 (Overview)
 
@@ -99,6 +105,18 @@ frontend/
 - **마지막 리밸런싱 날짜** / **다음 리밸런싱 날짜** (D-day 표시)
 - **포트폴리오 건강 상태** — 이탈 종목 없으면 초록 배지, 이탈 감지 시 주황 경고
 - **지수 비교 바** — 전략 수익률 vs QQQ(나스닥 100) / SPY(S&P 500) / DIA(다우존스)
+- 벤치마크 기간을 포트폴리오 실제 매수 시점과 일치시키도록 자동 추정 (`avg_price` 역산)
+
+### 5. 뉴스 탭 (News)
+
+보유 종목과 시장 전반에 관한 한국어 뉴스를 앱 안에서 바로 확인합니다.
+
+- **뉴스 카드 피드** — 보유 종목별 + 시장 전반 뉴스를 최신순으로 표시
+- **감성 분류** — 키워드 기반으로 호재 / 악재 / 중립 자동 분류 (초록·빨강·노랑 배지)
+- **필터 칩** — 전체 / 보유종목 / 시장 세 가지 뷰로 즉시 전환
+- **앱 내 기사 본문** — 카드 클릭 시 하단 시트 모달로 전체 본문 표시 (외부 브라우저 이동 없음)
+- **원문 링크** — 본문 하단에 원문 이동 버튼 제공
+- 뉴스 소스: 네이버 뉴스(`n.news.naver.com`) 검색 결과에서 종목별 한국어 기사 수집
 
 ---
 
@@ -146,9 +164,10 @@ frontend/
 
 ## 현재 진행상황
 
-- 모바일 대시보드 UI(Overview/Holdings/Momentum/Rebalance) 구현 완료
+- 모바일 대시보드 UI(Overview/Holdings/Momentum/Rebalance/News) 구현 완료
 - `src/app/api/dashboard/route.ts` 서버 API로 Supabase 조회 경로 구성 완료
 - `src/lib/api.ts`에서 프론트 타입 변환 및 에러 폴백 로직 구현 완료
 - 5분 주기 자동 새로고침(`setInterval`) 반영 완료
 - PWA 매니페스트/메타 설정 적용 완료
-- 실시간 지표(벤치마크/뉴스/드리프트) 일부는 목데이터 기반으로 보강 중
+- 벤치마크 수익률 기간: 포트폴리오 `avg_price` 역산으로 실제 매수 시점 자동 추정
+- 뉴스 탭: 네이버 뉴스 기반 한국어 뉴스 피드 + 앱 내 기사 본문 크롤링 구현 완료
