@@ -1,24 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { User, LogOut, X } from "lucide-react";
 import PortfolioSummary from "@/components/PortfolioSummary";
 import HoldingsList from "@/components/HoldingsList";
 import MomentumRankingCard from "@/components/MomentumRanking";
 import RebalanceStatus from "@/components/RebalanceStatus";
 import BottomNav from "@/components/BottomNav";
 import NewsPage from "@/components/NewsPage";
+import BrokerSettings from "@/components/BrokerSettings";
+import WithdrawalReservation from "@/components/WithdrawalReservation";
 import { fetchDashboardData, fetchLivePrices } from "@/lib/api";
 import { DashboardData } from "@/lib/types";
 import { MOCK_DATA } from "@/lib/mockData";
-import WithdrawalReservation from "@/components/WithdrawalReservation";
+import { createBrowserSupabaseClient } from "@/lib/supabase";
 
 type Tab = "overview" | "holdings" | "momentum" | "rebalance" | "news";
 
 export default function Home() {
+  const router = useRouter();
+  const supabase = createBrowserSupabaseClient();
+
   const [tab, setTab] = useState<Tab>("overview");
   const [data, setData] = useState<DashboardData>(MOCK_DATA);
   const [loading, setLoading] = useState(true);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const panelRef = useRef<HTMLDivElement>(null);
 
+  // 유저 정보 로드
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) { router.replace("/login"); return; }
+      setUserEmail(user.email ?? null);
+      setUserId(user.id);
+    });
+  }, [router, supabase.auth]);
+
+  // 대시보드 데이터 로드
   useEffect(() => {
     // 초기 전체 데이터 로드
     fetchDashboardData().then((d) => {
@@ -70,6 +91,23 @@ export default function Home() {
     };
   }, []);
 
+  // 패널 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!showSettings) return;
+    function handleClick(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setShowSettings(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [showSettings]);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.replace("/login");
+  }
+
   const { portfolio, momentum_ranking, rebalance_info, benchmarks, earnings_alerts } = data;
   const qqq = benchmarks.find((b) => b.ticker === "QQQ")?.return_pct ?? 0;
   const alpha = portfolio.total_pnl_pct - qqq;
@@ -85,16 +123,63 @@ export default function Home() {
               {tab === "news" ? "오늘의 마켓 이슈" : "N10-MEW · 모의투자"}
             </p>
           </div>
-          {loading ? (
-            <span className="text-xs text-slate-500 animate-pulse">불러오는 중...</span>
-          ) : (
-            <span className="flex items-center gap-1.5 text-xs text-emerald-400">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              Live
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {loading ? (
+              <span className="text-xs text-slate-500 animate-pulse">불러오는 중...</span>
+            ) : (
+              <span className="flex items-center gap-1.5 text-xs text-emerald-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Live
+              </span>
+            )}
+            {/* 프로필 버튼 */}
+            <button
+              onClick={() => setShowSettings((v) => !v)}
+              className="ml-1 w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-slate-200 hover:border-slate-500 transition-colors"
+            >
+              <User size={15} />
+            </button>
+          </div>
         </div>
       </header>
+
+      {/* 설정 패널 (슬라이드 다운) */}
+      {showSettings && (
+        <div className="fixed inset-0 z-20 bg-black/50 backdrop-blur-sm">
+          <div
+            ref={panelRef}
+            className="absolute top-0 left-0 right-0 max-w-lg mx-auto bg-slate-900 border-b border-slate-800 rounded-b-2xl shadow-2xl px-4 pt-4 pb-6 animate-slide-down"
+          >
+            {/* 패널 헤더 */}
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-sm font-semibold text-slate-200">계정 설정</p>
+                {userEmail && (
+                  <p className="text-xs text-slate-500 mt-0.5">{userEmail}</p>
+                )}
+              </div>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* 증권계좌 설정 */}
+            {userId && <BrokerSettings userId={userId} />}
+
+            {/* 로그아웃 */}
+            <button
+              onClick={handleLogout}
+              className="mt-4 w-full flex items-center justify-center gap-2 rounded-xl border border-slate-700 text-slate-400 hover:text-red-400 hover:border-red-800 py-2.5 text-sm transition-colors"
+            >
+              <LogOut size={15} />
+              로그아웃
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-lg mx-auto px-4 pt-4 space-y-4">
         {tab === "overview" && (
@@ -206,15 +291,7 @@ export default function Home() {
   );
 }
 
-function QuickStat({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: string;
-  color: string;
-}) {
+function QuickStat({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div className="rounded-xl bg-slate-900 border border-slate-800 p-3 text-center">
       <p className="text-xs text-slate-500 mb-1">{label}</p>

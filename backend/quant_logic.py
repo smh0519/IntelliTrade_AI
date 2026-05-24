@@ -25,10 +25,11 @@ class TradingStrategy:
     - 매 실행마다 모멘텀 랭킹 갱신 및 대시보드 출력
     """
 
-    def __init__(self, broker_client: BrokerAPIClient):
+    def __init__(self, broker_client: BrokerAPIClient, user_id: str = ""):
         self.broker = broker_client
+        self.user_id = user_id
         self.timezone = pytz.timezone(TIMEZONE)
-        self.rebalancer = N10MEWRebalancer(broker_client)
+        self.rebalancer = N10MEWRebalancer(broker_client, user_id=user_id)
         self.pending_orders: list = []
         self.full_ranking: list = []
         logger.info("TradingStrategy (N10-MEW) 초기화 완료.")
@@ -88,9 +89,10 @@ class TradingStrategy:
             pnl_pct=total_pnl,
             positions=holdings,
             current_prices=current_prices,
+            user_id=self.user_id,
         )
         if self.full_ranking:
-            supa.push_momentum_rankings(self.full_ranking, list(holdings.keys()))
+            supa.push_momentum_rankings(self.full_ranking, list(holdings.keys()), user_id=self.user_id)
 
         # 실적 캘린더 갱신 (보유 종목)
         earnings = fetch_earnings_dates(list(holdings.keys()))
@@ -231,4 +233,4 @@ class TradingStrategy:
         # 리밸런싱 후 최신 포트폴리오로 모멘텀 랭킹 재push
         if rebalanced:
             updated_holdings = self.rebalancer._get_holdings()
-            supa.push_momentum_rankings(self.full_ranking, list(updated_holdings.keys()))
+            supa.push_momentum_rankings(self.full_ranking, list(updated_holdings.keys()), user_id=self.user_id)

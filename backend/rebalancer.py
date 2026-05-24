@@ -24,8 +24,9 @@ class N10MEWRebalancer:
     - 보유 종목이 12위 밖으로 이탈: 즉시 교체
     """
 
-    def __init__(self, broker):
+    def __init__(self, broker, user_id: str = ""):
         self.broker = broker
+        self.user_id = user_id
         self.timezone = pytz.timezone(TIMEZONE)
         self.last_rebalance_month: int | None = None
         self.current_portfolio: list = []   # 현재 편입된 Top 10 종목
@@ -102,7 +103,7 @@ class N10MEWRebalancer:
         res = self.broker.place_sell_order(ticker, qty, strategy_tag=STRATEGY_TAG)
         if res and res.get("status") == "filled":
             price = res.get("executed_price")
-            supa.push_trade("sell", ticker, qty, price, STRATEGY_TAG)
+            supa.push_trade("sell", ticker, qty, price, STRATEGY_TAG, self.user_id)
             return price
         return None
 
@@ -111,7 +112,7 @@ class N10MEWRebalancer:
         res = self.broker.place_buy_order(ticker, qty, strategy_tag=STRATEGY_TAG)
         if res and res.get("status") == "filled":
             price = res.get("executed_price")
-            supa.push_trade("buy", ticker, qty, price, STRATEGY_TAG)
+            supa.push_trade("buy", ticker, qty, price, STRATEGY_TAG, self.user_id)
             return price
         return None
 
@@ -263,6 +264,7 @@ class N10MEWRebalancer:
             new_portfolio=new_top10,
             sold_tickers=[s.split(" @")[0] for s in sold_log],
             bought_tickers=[b.split(" @")[0] for b in bought_log],
+            user_id=self.user_id,
         )
         logger.info("✅ [Rebalancer] 리밸런싱 집행 완료.")
         return True

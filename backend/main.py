@@ -1,4 +1,5 @@
 # main.py
+import os
 import sys
 import schedule
 import time
@@ -14,6 +15,8 @@ def main():
     logger.info("IntelliTrade AI (N10-MEW) 시작합니다.")
     load_dotenv()
 
+    user_id = os.getenv("BOT_USER_ID", "")
+
     send_telegram_message(
         "🤖 <b>[IntelliTrade AI N10-MEW 부팅 완료]</b>\n\n"
         "📊 <b>전략:</b> Nasdaq 10 Momentum Equal Weight\n"
@@ -27,8 +30,8 @@ def main():
     cmd_handler.start_polling()
 
     try:
-        broker_client = BrokerAPIClient()
-        strategy = TradingStrategy(broker_client)
+        broker_client = BrokerAPIClient(user_id=user_id)
+        strategy = TradingStrategy(broker_client, user_id=user_id)
 
         def run_strategy_if_active():
             if bot_state.is_active:

@@ -61,3 +61,27 @@ ALTER TABLE portfolio_snapshots  DISABLE ROW LEVEL SECURITY;
 ALTER TABLE momentum_rankings    DISABLE ROW LEVEL SECURITY;
 ALTER TABLE trade_log            DISABLE ROW LEVEL SECURITY;
 ALTER TABLE rebalance_log        DISABLE ROW LEVEL SECURITY;
+
+-- ── user_id 컬럼 마이그레이션 ────────────────────────────────────────
+-- 이미 테이블이 존재하는 경우 아래 ALTER 문을 Supabase SQL Editor에서 실행하세요.
+ALTER TABLE portfolio_snapshots  ADD COLUMN IF NOT EXISTS user_id UUID;
+ALTER TABLE momentum_rankings    ADD COLUMN IF NOT EXISTS user_id UUID;
+ALTER TABLE trade_log            ADD COLUMN IF NOT EXISTS user_id UUID;
+ALTER TABLE rebalance_log        ADD COLUMN IF NOT EXISTS user_id UUID;
+
+CREATE INDEX IF NOT EXISTS idx_portfolio_snapshots_user_id ON portfolio_snapshots (user_id);
+CREATE INDEX IF NOT EXISTS idx_momentum_rankings_user_id   ON momentum_rankings (user_id);
+CREATE INDEX IF NOT EXISTS idx_trade_log_user_id           ON trade_log (user_id);
+CREATE INDEX IF NOT EXISTS idx_rebalance_log_user_id       ON rebalance_log (user_id);
+
+-- 6. 증권계좌 API 자격증명 (프론트엔드 설정 화면에서 저장)
+CREATE TABLE IF NOT EXISTS user_broker_credentials (
+  user_id          UUID PRIMARY KEY,
+  api_key          TEXT,
+  secret_key       TEXT,
+  account_id       TEXT,
+  base_url         TEXT,
+  is_simulation_mode BOOLEAN DEFAULT TRUE,
+  updated_at       TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE user_broker_credentials DISABLE ROW LEVEL SECURITY;
