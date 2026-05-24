@@ -1,11 +1,18 @@
-import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
-function getServerClient() {
-  return createClient(
+// 인증된 사용자 + 해당 user_id로 접근하는 service-role 클라이언트를 함께 반환
+async function getAuthContext() {
+  const authClient = await createServerSupabaseClient();
+  const { data: { user } } = await authClient.auth.getUser();
+  if (!user) return { user: null, serviceClient: null };
+
+  const serviceClient = createClient(
     process.env.SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
+  return { user, serviceClient };
 }
 
 async function fetchCurrentPrices(tickers: string[]): Promise<Record<string, number>> {
@@ -33,11 +40,13 @@ async function fetchCurrentPrices(tickers: string[]): Promise<Record<string, num
 }
 
 async function fetchEarningsDatesFromSupabase(
-  tickers: string[]
+  tickers: string[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: SupabaseClient<any>
 ): Promise<Record<string, string | null>> {
   if (tickers.length === 0) return {};
   try {
-    const { data } = await getServerClient()
+    const { data } = await client
       .from("earnings_calendar")
       .select("ticker, earnings_date")
       .in("ticker", tickers);
@@ -151,25 +160,31 @@ async function fetchBenchmarkReturns(
 }
 
 export async function GET() {
-  const client = getServerClient();
+  const { user, serviceClient: client } = await getAuthContext();
+  if (!user || !client) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   try {
     const [snapshotRes, rankingRes, rebalanceRes] = await Promise.all([
       client
         .from("portfolio_snapshots")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .single(),
       client
         .from("momentum_rankings")
         .select("rankings, created_at")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
       client
         .from("rebalance_log")
         .select("*")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -190,7 +205,7 @@ export async function GET() {
     const [inceptionDate, currentPrices, earningsDates] = await Promise.all([
       inferInceptionDate(positionsRaw),
       fetchCurrentPrices(tickers),
-      fetchEarningsDatesFromSupabase(tickers),
+      fetchEarningsDatesFromSupabase(tickers, client),
     ]);
 
     const benchmarks = await fetchBenchmarkReturns(inceptionDate);

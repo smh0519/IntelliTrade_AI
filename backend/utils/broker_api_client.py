@@ -1,13 +1,15 @@
 import os
 import requests
-import json
 import time
 from functools import wraps
 from dotenv import load_dotenv
 from utils.logger import logger
 
+load_dotenv()
+
+
 def handle_broker_errors(max_retries=3, initial_delay=1.0, backoff_factor=2):
-    """API 호출 시 발생할 수 있는 429 에러나 타임아웃을 강어하는 백오프 데코레이터입니다."""
+    """429·5xx 에러 시 지수 백오프로 재시도하는 데코레이터."""
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
@@ -23,7 +25,7 @@ def handle_broker_errors(max_retries=3, initial_delay=1.0, backoff_factor=2):
                         delay *= backoff_factor
                         retries += 1
                     else:
-                        raise # 400 등 인증 거절 에러는 즉시 발생
+                        raise
                 except requests.exceptions.RequestException as e:
                     logger.error(f"통신 에러 발생: {e}. {delay}초 뒤 재시도...")
                     time.sleep(delay)
@@ -34,203 +36,225 @@ def handle_broker_errors(max_retries=3, initial_delay=1.0, backoff_factor=2):
         return wrapper
     return decorator
 
-# .env 파일 로드
-load_dotenv()
+
+# ── 미래에셋 Open API 기본 URL ────────────────────────────────────────
+MIRAEASSET_BASE_URL = "https://openapi.miraeasset.com"  # 실제 URL은 API 승인 후 확인
+
 
 class BrokerAPIClient:
     """
-    증권사 API와 통신하는 클라이언트 클래스입니다.
-    실제 증권사 API 명세에 맞춰 구현해야 합니다.
+    증권사 API 클라이언트.
+
+    시작 순서:
+      1. Supabase user_broker_credentials 테이블에서 자격증명 로드 (user_id 필요)
+      2. 없으면 .env 폴백 (BROKER_API_KEY, BROKER_SECRET_KEY 등)
+      3. is_simulation_mode=True면 yfinance + 가상계좌로 동작
     """
-    def __init__(self):
-        self.api_key = os.getenv("BROKER_API_KEY")
-        self.secret_key = os.getenv("BROKER_SECRET_KEY")
-        self.account_id = os.getenv("BROKER_ACCOUNT_ID")
-        self.base_url = os.getenv("BROKER_API_BASE_URL", "https://api.examplebroker.com") # 기본 URL 설정
-        self.is_simulation_mode = os.getenv("IS_SIMULATION_MODE", "True").lower() == "true"
+
+    def __init__(self, user_id: str = ""):
+        creds = self._load_supabase_credentials(user_id) if user_id else None
+
+        if creds:
+            logger.info("[BrokerAPI] Supabase에서 자격증명 로드 완료")
+            self.api_key          = creds.get("api_key") or ""
+            self.secret_key       = creds.get("secret_key") or ""
+            self.account_id       = creds.get("account_id") or ""
+            self.base_url         = creds.get("base_url") or MIRAEASSET_BASE_URL
+            self.is_simulation_mode = creds.get("is_simulation_mode", True)
+        else:
+            logger.info("[BrokerAPI] .env에서 자격증명 로드")
+            self.api_key          = os.getenv("BROKER_API_KEY", "")
+            self.secret_key       = os.getenv("BROKER_SECRET_KEY", "")
+            self.account_id       = os.getenv("BROKER_ACCOUNT_ID", "")
+            self.base_url         = os.getenv("BROKER_API_BASE_URL", MIRAEASSET_BASE_URL)
+            self.is_simulation_mode = os.getenv("IS_SIMULATION_MODE", "True").lower() == "true"
 
         if not self.is_simulation_mode and not all([self.api_key, self.secret_key, self.account_id]):
-            logger.error("API 키, 시크릿 키, 계좌 ID가 .env 파일에 설정되지 않았습니다.")
-            raise ValueError("API credentials not set.")
+            logger.error("실계좌 모드인데 API 키/시크릿/계좌번호가 비어 있습니다.")
+            raise ValueError("브로커 자격증명이 설정되지 않았습니다.")
+
+        self._access_token: str = ""
+        self._token_expires_at: float = 0.0
 
         logger.info(f"BrokerAPIClient 초기화 완료. 시뮬레이션 모드: {self.is_simulation_mode}")
 
-    def _get_headers(self):
+    # ── 내부 유틸 ────────────────────────────────────────────────────
+
+    @staticmethod
+    def _load_supabase_credentials(user_id: str) -> dict | None:
+        try:
+            from utils.supabase_client import load_broker_credentials
+            return load_broker_credentials(user_id)
+        except Exception as e:
+            logger.warning(f"[BrokerAPI] Supabase 자격증명 로드 실패 → .env 폴백: {e}")
+            return None
+
+    def _get_access_token(self) -> str:
         """
-        API 요청에 필요한 헤더를 생성합니다.
-        (각 증권사 API 명세에 따라 인증 방식이 다를 수 있습니다.)
+        미래에셋 OAuth 액세스 토큰을 발급·갱신합니다.
+
+        ※ 실제 엔드포인트·파라미터는 미래에셋 Open API 문서 확인 후 채워주세요.
         """
-        headers = {
-            "Content-Type": "application/json",
-            "X-API-KEY": self.api_key,
-            "X-API-SECRET": self.secret_key,
-            # 추가적인 인증 토큰 등이 필요할 수 있습니다.
+        if self._access_token and time.time() < self._token_expires_at - 60:
+            return self._access_token
+
+        url = f"{self.base_url}/oauth/token"  # TODO: 미래에셋 실제 토큰 발급 URL
+        payload = {
+            "grant_type":    "client_credentials",
+            "appkey":        self.api_key,
+            "appsecretkey":  self.secret_key,
         }
-        return headers
+        try:
+            res = requests.post(url, json=payload, timeout=10)
+            res.raise_for_status()
+            data = res.json()
+            self._access_token    = data["access_token"]          # TODO: 응답 키 확인
+            expires_in            = data.get("expires_in", 3600)  # TODO: 응답 키 확인
+            self._token_expires_at = time.time() + expires_in
+            logger.info("[BrokerAPI] 미래에셋 액세스 토큰 발급 완료")
+        except Exception as e:
+            logger.error(f"[BrokerAPI] 토큰 발급 실패: {e}")
+        return self._access_token
+
+    def _get_headers(self) -> dict:
+        return {
+            "Content-Type":  "application/json",
+            "Authorization": f"Bearer {self._get_access_token()}",
+            "appkey":        self.api_key,       # TODO: 미래에셋 헤더 명세 확인
+            "appsecretkey":  self.secret_key,
+        }
+
+    # ── 계좌 잔고 ────────────────────────────────────────────────────
 
     @handle_broker_errors()
-    def get_account_balance(self):
-        """
-        계좌 잔고를 조회합니다.
-        (실제 증권사 API 엔드포인트와 응답 형식에 맞춰 구현해야 합니다.)
-        """
+    def get_account_balance(self) -> dict | None:
         if self.is_simulation_mode:
             import utils.mock_account as mock
             data = mock.get_virtual_balance()
-            logger.info(f"시뮬레이션 모드: 가상 계좌 잔고를 반환합니다. ({data['cash']} {data['currency']})")
+            logger.info(f"[시뮬] 가상계좌 잔고: ${data['cash']:.2f}")
             return data
-        
+
+        # TODO: 미래에셋 잔고 조회 엔드포인트·응답 파싱 채우기
         url = f"{self.base_url}/v1/accounts/{self.account_id}/balance"
         try:
-            response = requests.get(url, headers=self._get_headers())
-            response.raise_for_status() # HTTP 에러 발생 시 예외 발생
-            data = response.json()
-            logger.info(f"계좌 잔고 조회 성공: {data}")
-            # 실제 응답에서 현금 잔고를 파싱하여 반환
-            return {"cash": data.get("available_cash"), "currency": data.get("currency")}
+            res = requests.get(url, headers=self._get_headers(), timeout=10)
+            res.raise_for_status()
+            data = res.json()
+            return {"cash": data.get("available_cash"), "currency": "USD"}
         except requests.exceptions.RequestException as e:
-            logger.error(f"계좌 잔고 조회 실패: {e}")
-            return None
-        except KeyError as e:
-            logger.error(f"계좌 잔고 응답 파싱 실패 (키 오류): {e}, 응답: {response.text}")
+            logger.error(f"[BrokerAPI] 잔고 조회 실패: {e}")
             return None
 
+    # ── 현재가 ───────────────────────────────────────────────────────
+
     @handle_broker_errors()
-    def get_current_price(self, symbol: str):
-        """
-        특정 종목의 현재 가격을 조회합니다.
-        (실제 증권사 API 엔드포인트와 응답 형식에 맞춰 구현해야 합니다.)
-        """
+    def get_current_price(self, symbol: str) -> dict | None:
         if self.is_simulation_mode:
             try:
                 import yfinance as yf
                 ticker = yf.Ticker(symbol)
-                # history 1분봉 (prepost=True): 프리/애프터 마켓 포함 최신가
                 hist = ticker.history(period="1d", interval="1m", prepost=True)
-                if not hist.empty:
-                    price = float(hist["Close"].iloc[-1])
-                else:
-                    price = ticker.fast_info["lastPrice"]
-                logger.info(f"시뮬레이션 모드 (Live): {symbol}의 실시간 현재가 -> {price:.2f} USD")
+                price = float(hist["Close"].iloc[-1]) if not hist.empty else ticker.fast_info["lastPrice"]
+                logger.info(f"[시뮬] {symbol} 실시간 현재가: ${price:.2f}")
                 return {"price": round(price, 2), "currency": "USD"}
             except Exception as e:
-                logger.error(f"시뮬레이션 라이브 시세 조회 실패: {e}")
+                logger.error(f"[시뮬] {symbol} 시세 조회 실패: {e}")
                 return None
-            
+
+        # TODO: 미래에셋 시세 조회 엔드포인트·응답 파싱 채우기
         url = f"{self.base_url}/v1/market/quotes/{symbol}"
         try:
-            response = requests.get(url, headers=self._get_headers())
-            response.raise_for_status()
-            data = response.json()
-            logger.debug(f"{symbol} 현재가 조회 성공: {data}")
-            return {"price": data.get("current_price"), "currency": data.get("currency")}
+            res = requests.get(url, headers=self._get_headers(), timeout=10)
+            res.raise_for_status()
+            data = res.json()
+            return {"price": data.get("current_price"), "currency": "USD"}
         except requests.exceptions.RequestException as e:
-            logger.error(f"{symbol} 현재가 조회 실패: {e}")
+            logger.error(f"[BrokerAPI] {symbol} 현재가 조회 실패: {e}")
             return None
 
+    # ── 매수 주문 ────────────────────────────────────────────────────
+
     @handle_broker_errors()
-    def place_buy_order(self, symbol: str, quantity: float, price: float = None, strategy_tag: str = "MANUAL"):
-        """
-        매수 주문을 실행합니다.
-        (실제 증권사 API 엔드포인트와 요청/응답 형식에 맞춰 구현해야 합니다.)
-        price가 None이면 시장가 주문, price가 있으면 지정가 주문으로 가정합니다.
-        """
-        order_type = "market" if price is None else "limit"
-        order_data = {
-            "symbol": symbol,
-            "side": "buy",
-            "quantity": quantity,
-            "order_type": order_type,
-            "price": price, # 지정가 주문일 경우에만 포함
-            "account_id": self.account_id,
-            "strategy_tag": strategy_tag
-        }
-        
+    def place_buy_order(self, symbol: str, quantity: float, price: float = None, strategy_tag: str = "MANUAL") -> dict | None:
         if self.is_simulation_mode:
-            logger.info(f"시뮬레이션 모드: 📝 매수 주문 실행 중... (종목: {symbol}, 수량: {quantity}, 전략: {strategy_tag})")
             import utils.mock_account as mock
-            
-            # 지정가가 없으면 실시간 현재가로 매수
-            exec_price = price if price else self.get_current_price(symbol)['price']
+            exec_price = price if price else self.get_current_price(symbol)["price"]
             res_price = mock.execute_virtual_buy(symbol, quantity, exec_price, strategy_tag)
-            
             if res_price is None:
                 return None
+            logger.info(f"[시뮬] 매수 체결: {symbol} {quantity}주 @ ${res_price:.2f}")
             return {"order_id": f"SIM_BUY_{int(time.time())}", "status": "filled", "executed_price": res_price}
 
+        # TODO: 미래에셋 매수 주문 엔드포인트·응답 파싱 채우기
+        order_data = {
+            "symbol":       symbol,
+            "side":         "buy",
+            "quantity":     quantity,
+            "order_type":   "market" if price is None else "limit",
+            "price":        price,
+            "account_id":   self.account_id,
+        }
         url = f"{self.base_url}/v1/orders"
         try:
-            response = requests.post(url, headers=self._get_headers(), json=order_data)
-            response.raise_for_status()
-            data = response.json()
-            logger.info(f"매수 주문 성공: {data}")
-            return data
+            res = requests.post(url, headers=self._get_headers(), json=order_data, timeout=10)
+            res.raise_for_status()
+            return res.json()
         except requests.exceptions.RequestException as e:
-            logger.error(f"매수 주문 실패: {e}, 요청 데이터: {order_data}, 응답: {response.text}")
+            logger.error(f"[BrokerAPI] 매수 주문 실패: {e}")
             return None
 
-    @handle_broker_errors()
-    def place_sell_order(self, symbol: str, quantity: float, price: float = None, strategy_tag: str = "MANUAL"):
-        """
-        매도 주문을 실행합니다.
-        """
-        order_type = "market" if price is None else "limit"
-        order_data = {
-            "symbol": symbol,
-            "side": "sell",
-            "quantity": quantity,
-            "order_type": order_type,
-            "price": price,
-            "account_id": self.account_id,
-            "strategy_tag": strategy_tag
-        }
+    # ── 매도 주문 ────────────────────────────────────────────────────
 
+    @handle_broker_errors()
+    def place_sell_order(self, symbol: str, quantity: float, price: float = None, strategy_tag: str = "MANUAL") -> dict | None:
         if self.is_simulation_mode:
-            logger.info(f"시뮬레이션 모드: 📝 매도 주문 실행 중... (종목: {symbol}, 수량: {quantity}, 전략: {strategy_tag})")
             import utils.mock_account as mock
-            
-            exec_price = price if price else self.get_current_price(symbol)['price']
+            exec_price = price if price else self.get_current_price(symbol)["price"]
             res_price = mock.execute_virtual_sell(symbol, quantity, exec_price, strategy_tag)
-            
             if res_price is None:
                 return None
+            logger.info(f"[시뮬] 매도 체결: {symbol} {quantity}주 @ ${res_price:.2f}")
             return {"order_id": f"SIM_SELL_{int(time.time())}", "status": "filled", "executed_price": res_price}
 
+        # TODO: 미래에셋 매도 주문 엔드포인트·응답 파싱 채우기
+        order_data = {
+            "symbol":       symbol,
+            "side":         "sell",
+            "quantity":     quantity,
+            "order_type":   "market" if price is None else "limit",
+            "price":        price,
+            "account_id":   self.account_id,
+        }
         url = f"{self.base_url}/v1/orders"
         try:
-            response = requests.post(url, headers=self._get_headers(), json=order_data)
-            response.raise_for_status()
-            data = response.json()
-            logger.info(f"매도 주문 성공: {data}")
-            return data
+            res = requests.post(url, headers=self._get_headers(), json=order_data, timeout=10)
+            res.raise_for_status()
+            return res.json()
         except requests.exceptions.RequestException as e:
-            logger.error(f"매도 주문 실패: {e}, 요청 데이터: {order_data}, 응답: {response.text}")
-            raise # 데코레이터에서 잡히도록 throw
+            logger.error(f"[BrokerAPI] 매도 주문 실패: {e}")
+            raise
+
+    # ── 주문 상태 / 취소 ─────────────────────────────────────────────
 
     @handle_broker_errors()
-    def get_order_status(self, order_id: str):
-        """특정 주문의 체결 상태(filled, partial, pending, canceled, rejected)를 반환합니다."""
+    def get_order_status(self, order_id: str) -> dict | None:
         if self.is_simulation_mode:
-            logger.debug(f"시뮬레이션 모드: 체결 상태 확인 (ID: {order_id})")
-            # 시뮬레이션에서는 대충 성공으로 치기보다는 랜덤 딜레이 구현이 좋으나,
-            # 확인 편의상 대기는 안하고 바로 'filled'로 넘깁니다. (실제 테스트시엔 수정)
             return {"order_id": order_id, "status": "filled", "timestamp": time.time()}
 
+        # TODO: 미래에셋 주문 상태 조회 엔드포인트 채우기
         url = f"{self.base_url}/v1/orders/{order_id}"
-        response = requests.get(url, headers=self._get_headers())
-        response.raise_for_status()
-        return response.json()
+        res = requests.get(url, headers=self._get_headers(), timeout=10)
+        res.raise_for_status()
+        return res.json()
 
     @handle_broker_errors()
-    def cancel_order(self, order_id: str):
-        """미체결 상태이거나 부분 체결된 주문을 취소합니다."""
+    def cancel_order(self, order_id: str) -> dict | None:
         if self.is_simulation_mode:
-            logger.info(f"시뮬레이션 모드: 미체결 주문 취소 성공 (ID: {order_id})")
+            logger.info(f"[시뮬] 주문 취소: {order_id}")
             return {"order_id": order_id, "status": "canceled"}
 
+        # TODO: 미래에셋 주문 취소 엔드포인트 채우기
         url = f"{self.base_url}/v1/orders/{order_id}/cancel"
-        response = requests.post(url, headers=self._get_headers())
-        response.raise_for_status()
-        data = response.json()
-        logger.info(f"주문 ID {order_id} 강제 취소 성공: {data}")
-        return data
+        res = requests.post(url, headers=self._get_headers(), timeout=10)
+        res.raise_for_status()
+        return res.json()
