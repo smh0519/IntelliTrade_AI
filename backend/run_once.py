@@ -22,7 +22,8 @@ from utils.logger import logger
 from utils.broker_api_client import BrokerAPIClient
 from quant_logic import TradingStrategy
 import utils.screener as screener
-from config import UNIVERSE_TICKERS, REBALANCE_EXIT_RANK, TOP_N_PORTFOLIO
+from config import REBALANCE_EXIT_RANK, TOP_N_PORTFOLIO
+from utils.universe import fetch_nasdaq100_universe
 
 
 def main():
@@ -38,7 +39,7 @@ def main():
         strategy.check_news_danger()
     elif is_force:
         # 현재 모멘텀 랭킹 산출 후 날짜 조건 없이 즉시 리밸런싱
-        full_ranking = screener.run_momentum_screener(UNIVERSE_TICKERS, top_n=REBALANCE_EXIT_RANK + 2)
+        full_ranking = screener.run_momentum_screener(fetch_nasdaq100_universe(), top_n=REBALANCE_EXIT_RANK + 2)
         if not full_ranking:
             logger.error("[run_once] 랭킹 산출 실패, 종료합니다.")
             sys.exit(1)

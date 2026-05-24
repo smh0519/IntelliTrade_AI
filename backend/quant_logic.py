@@ -3,12 +3,13 @@
 import pytz
 from datetime import datetime
 from config import (
-    UNIVERSE_TICKERS, TIMEZONE, ORDER_TIMEOUT_MINUTES, UNFILLED_ORDER_ACTION,
+    TIMEZONE, ORDER_TIMEOUT_MINUTES, UNFILLED_ORDER_ACTION,
     MOMENTUM_PERIOD_DAYS, TOP_N_PORTFOLIO, REBALANCE_EXIT_RANK,
     WEIGHT_PER_STOCK, PORTFOLIO_STOP_LOSS,
 )
 from utils.broker_api_client import BrokerAPIClient
 from utils.logger import logger
+from utils.universe import fetch_nasdaq100_universe
 import utils.telegram_bot as telebot
 import utils.supabase_client as supa
 from utils.earnings import fetch_earnings_dates
@@ -176,7 +177,7 @@ class TradingStrategy:
 
         # 1. 최신 모멘텀 랭킹 산출 (Top 14: 포트폴리오 10 + 관찰 버퍼 4)
         self.full_ranking = screener.run_momentum_screener(
-            UNIVERSE_TICKERS,
+            fetch_nasdaq100_universe(),
             top_n=REBALANCE_EXIT_RANK + 2,
         )
 

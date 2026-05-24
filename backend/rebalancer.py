@@ -6,6 +6,7 @@ from utils.logger import logger
 import utils.telegram_bot as telebot
 import utils.mock_account as mock
 import utils.supabase_client as supa
+import utils.withdrawal as withdrawal
 from config import (
     WEIGHT_PER_STOCK, REBALANCE_THRESHOLD, REBALANCE_EXIT_RANK,
     ORDER_TIMEOUT_MINUTES, UNFILLED_ORDER_ACTION,
@@ -140,7 +141,24 @@ class N10MEWRebalancer:
         logger.info(f"🎯 [Rebalancer] 목표 포트폴리오: {new_top10}")
 
         total_value = self._get_total_value(current_prices)
-        target_per_stock = total_value * WEIGHT_PER_STOCK
+
+        # 출금 예약 확인 — 예약액만큼 투자 대상 총액에서 제외
+        withdrawal_amount = withdrawal.get_reservation() or 0.0
+        if withdrawal_amount > 0:
+            if withdrawal_amount >= total_value:
+                logger.warning(
+                    f"⚠️ [Rebalancer] 출금 예약액(${withdrawal_amount:.2f})이 "
+                    f"총 자산(${total_value:.2f}) 이상 — 예약 무시"
+                )
+                withdrawal_amount = 0.0
+            else:
+                logger.info(
+                    f"💸 [Rebalancer] 출금 예약 감지: ${withdrawal_amount:.2f} "
+                    f"(총 자산 ${total_value:.2f}에서 제외)"
+                )
+
+        investable = total_value - withdrawal_amount
+        target_per_stock = investable * WEIGHT_PER_STOCK
 
         sold_log: list[str] = []
         bought_log: list[str] = []
@@ -189,7 +207,19 @@ class N10MEWRebalancer:
             drift = (target_per_stock - cur_value) / target_per_stock
 
             if drift > REBALANCE_THRESHOLD:
-                buy_value = target_per_stock - cur_value
+                # 가용 현금 조회 (슬리피지 0.05% 감안하여 실제 사용 가능 금액 계산)
+                if self.broker.is_simulation_mode:
+                    import utils.mock_account as mock
+                    available_cash = mock.get_virtual_balance().get("cash", 0.0)
+                else:
+                    acc = self.broker.get_account_balance() or {}
+                    available_cash = acc.get("cash", 0.0)
+
+                usable_cash = available_cash / 1.0005
+                buy_value = min(target_per_stock - cur_value, usable_cash)
+                if buy_value <= 0:
+                    logger.warning(f"⚠️ [Rebalancer] {ticker} 매수 불가 (가용현금 없음)")
+                    continue
                 buy_qty = round(buy_value / cur_price, 4)
                 if buy_qty <= 0:
                     continue
@@ -207,6 +237,10 @@ class N10MEWRebalancer:
         self.last_rebalance_month = today.month
         self.current_portfolio = new_top10[:]
 
+        # 출금 예약 이행 완료 → 예약 초기화
+        if withdrawal_amount > 0:
+            withdrawal.clear_reservation()
+
         portfolio_lines = "\n".join(
             [f"  {i + 1:>2}. {t}" for i, t in enumerate(new_top10)]
         )
@@ -220,6 +254,8 @@ class N10MEWRebalancer:
             msg += f"\n\n📤 <b>매도:</b> {', '.join(sold_log)}"
         if bought_log:
             msg += f"\n📥 <b>매수:</b> {', '.join(bought_log)}"
+        if withdrawal_amount > 0:
+            msg += f"\n💸 <b>출금 예약 이행:</b> ${withdrawal_amount:,.2f} 현금 보유"
 
         telebot.send_telegram_message(msg)
         supa.push_rebalance_log(
