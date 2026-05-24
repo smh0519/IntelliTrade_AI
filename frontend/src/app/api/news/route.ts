@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { NewsItem } from "@/lib/types";
 
 const FALLBACK_TICKERS = ["AMD", "MRVL", "MU", "ARM", "QCOM", "ON", "CRWD", "TXN", "PANW"];
@@ -96,15 +97,16 @@ function koreanSentiment(text: string): NewsItem["sentiment"] {
   return "neutral";
 }
 
-async function getPortfolioTickers(): Promise<string[]> {
+async function getPortfolioTickers(userId: string): Promise<string[]> {
   try {
-    const client = createClient(
+    const serviceClient = createClient(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     );
-    const { data } = await client
+    const { data } = await serviceClient
       .from("portfolio_snapshots")
       .select("positions")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(1)
       .single();
@@ -114,8 +116,12 @@ async function getPortfolioTickers(): Promise<string[]> {
 }
 
 export async function GET() {
+  const authClient = await createServerSupabaseClient();
+  const { data: { user } } = await authClient.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
   try {
-    const tickers = await getPortfolioTickers();
+    const tickers = await getPortfolioTickers(user.id);
 
     const tickerQueries = tickers.map((t) => ({
       ticker: t,
