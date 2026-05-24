@@ -20,6 +20,17 @@ Node.js >= 20, npm >= 10 필요.
 
 ---
 
+## 인증
+
+Supabase Auth 기반 Google OAuth 로그인.
+
+- `middleware.ts` — 모든 경로에 인증 체크 적용. 미인증 사용자는 `/login`으로 리다이렉트
+- `/login` — Google 로그인 버튼. 승인된 계정만 접근 가능
+- `/auth/callback` — OAuth 콜백 처리 (PKCE flow + implicit flow 모두 지원)
+- 로그인 후 헤더 우측 사용자 이메일 표시 + 로그아웃 버튼
+
+---
+
 ## 데이터 갱신 주기
 
 | 데이터 | 갱신 주기 | 방식 |
@@ -104,15 +115,17 @@ Yahoo Finance
 ```
 src/
 ├── app/
-│   ├── page.tsx                   # 메인 — 탭 라우팅, 이중 갱신 인터벌
+│   ├── page.tsx                   # 메인 — 탭 라우팅, 이중 갱신 인터벌, 인증 체크
 │   ├── layout.tsx                 # PWA 메타태그, 폰트, 전역 스타일
 │   ├── globals.css                # Tailwind, iOS safe-area, 모달 애니메이션
+│   ├── login/page.tsx             # Google OAuth 로그인 페이지
+│   ├── auth/callback/page.tsx     # OAuth 콜백 처리 (PKCE + implicit flow)
 │   └── api/
 │       ├── dashboard/route.ts     # Supabase + Yahoo Finance + 벤치마크
-│       ├── prices/route.ts        # Yahoo Finance 현재가 (경량)
+│       ├── prices/route.ts        # Yahoo Finance 현재가 (5분 주기 경량)
 │       ├── news/route.ts          # 네이버 뉴스
 │       ├── news/article/route.ts  # 기사 본문 크롤링
-│       └── withdrawal/route.ts   # 출금 예약 CRUD
+│       └── withdrawal/route.ts    # 출금 예약 CRUD
 ├── components/
 │   ├── PortfolioSummary.tsx       # 포트폴리오 요약 카드
 │   ├── HoldingsList.tsx           # 보유 종목 목록
@@ -121,12 +134,15 @@ src/
 │   ├── NewsPage.tsx               # 뉴스 피드
 │   ├── NewsDetailModal.tsx        # 뉴스 상세 모달
 │   ├── WithdrawalReservation.tsx  # 출금 예약 카드 + 모달
+│   ├── BrokerSettings.tsx         # 브로커 API 키 설정 패널
 │   └── BottomNav.tsx              # 하단 탭 네비게이션
-└── lib/
-    ├── types.ts                   # TypeScript 인터페이스
-    ├── api.ts                     # API 응답 정규화 + fetchLivePrices
-    ├── supabase.ts                # Supabase 클라이언트
-    └── mockData.ts                # API 실패 시 폴백 데이터
+├── lib/
+│   ├── types.ts                   # TypeScript 인터페이스
+│   ├── api.ts                     # API 응답 정규화 + fetchLivePrices
+│   ├── supabase.ts                # Supabase 브라우저 클라이언트
+│   ├── supabase-server.ts         # Supabase 서버 클라이언트 (Route Handler 전용)
+│   └── mockData.ts                # API 실패 시 폴백 데이터
+└── middleware.ts                  # 인증 미들웨어 — 미인증 시 /login 리다이렉트
 ```
 
 ---
@@ -139,8 +155,22 @@ src/
 | 스타일링 | Tailwind CSS v4 |
 | 아이콘 | Lucide React |
 | 언어 | TypeScript |
+| 인증 | Supabase Auth (Google OAuth) |
 | 데이터 | Supabase + Yahoo Finance |
-| 배포 | Vercel (예정) |
+| 배포 | Vercel (main/master push 시 자동 배포) |
+
+---
+
+## 환경 변수
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+```
+
+- `NEXT_PUBLIC_*` — 브라우저/미들웨어에서 Supabase Auth에 사용
+- `SUPABASE_SERVICE_ROLE_KEY` — 서버 사이드 Route Handler에서만 사용
 
 ---
 
@@ -152,25 +182,17 @@ src/
 
 ---
 
-## 환경 변수
-
-```env
-SUPABASE_URL=...
-SUPABASE_SERVICE_ROLE_KEY=...
-```
-
-서버 사이드 Route Handler에서만 사용. 클라이언트에 노출되지 않습니다.
-
----
-
 ## 현재 진행상황
 
+- [x] Google OAuth 로그인 (Supabase Auth — 승인된 계정만 접근)
+- [x] 인증 미들웨어 (미인증 사용자 /login 리다이렉트)
 - [x] 5탭 모바일 PWA 대시보드 구현 완료
-- [x] 이중 갱신 인터벌 적용 (5분 현재가 / 15분 전체 데이터)
-- [x] `/api/prices` 경량 엔드포인트 구현 (5분 주기 현재가 전용)
-- [x] 출금 예약 카드 + 모달 UI 구현 완료 (% / $ 토글, 미리보기)
+- [x] 이중 갱신 인터벌 (5분 현재가 / 15분 전체 데이터)
+- [x] `/api/prices` 경량 엔드포인트 (5분 주기 현재가 전용)
+- [x] 출금 예약 카드 + 모달 UI (% / $ 토글, 미리보기)
 - [x] 실적 발표 D-day 알림 카드
-- [x] 뉴스 탭: 네이버 뉴스 기반 한국어 뉴스 피드 + 앱 내 기사 본문
+- [x] 뉴스 탭 (네이버 뉴스 + 앱 내 기사 본문)
 - [x] QQQ·SPY·DIA 벤치마크 수익률 비교 바
-- [x] Supabase 실데이터 연동 (portfolio_snapshots / momentum_rankings / rebalance_log)
+- [x] 브로커 API 설정 패널 (`user_broker_credentials` Supabase 저장)
+- [x] Vercel 자동 배포 (main/master push 트리거)
 - [ ] 실거래 연동 시 실시간 체결 데이터 반영 확인 필요
