@@ -11,3 +11,4 @@ pytz
 rich
 supabase
 matplotlib
+pytickersymbols

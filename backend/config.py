@@ -20,7 +20,7 @@ TOP_N_PORTFOLIO = 10             # 포트폴리오 편입 종목 수
 REBALANCE_EXIT_RANK = 12         # 이 순위 밖으로 밀리면 즉시 교체
 WEIGHT_PER_STOCK = 0.10          # 종목당 동일 비중 (10%)
 REBALANCE_THRESHOLD = 0.02       # 비중 오차가 2% 이상일 때만 조정 (거래비용 절감)
-REBALANCE_EXECUTION_TIME = "10:00"  # 리밸런싱 집행 시각 (뉴욕 기준, 개장 30분 후)
+REBALANCE_EXECUTION_TIME = "09:30"  # 리밸런싱 집행 시각 (뉴욕 기준, 정규장 개장 즉시)
 
 # --- 리스크 관리 ---
 PORTFOLIO_STOP_LOSS = -0.20      # 전체 포트폴리오 -20% 이탈 시 경고 알림
