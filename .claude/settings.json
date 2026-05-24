@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -s 'https://query1.finance.yahoo.com/v7/finance/quote?symbols=AMD,QCOM,TXN&fields=regularMarketPrice,earningsTimestamp,earningsTimestampStart,earningsTimestampEnd' -H 'User-Agent: Mozilla/5.0')",
+      "Bash(curl -s https://query2.finance.yahoo.com/v10/finance/quoteSummary/AMD?modules=calendarEvents -H 'User-Agent: Mozilla/5.0')",
+      "Bash(curl -s \"http://localhost:3001/api/dashboard\")"
+    ]
+  }
+}

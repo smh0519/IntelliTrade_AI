@@ -1,0 +1,91 @@
+name: Run N10-MEW Strategy Bot
+
+on:
+  schedule:
+    # 매시 30분, 월~금, 13:30-19:30 UTC = 9:30 AM - 3:30 PM ET (장중)
+    - cron: "30 13-19 * * 1-5"
+    # 뉴스 점검: 매주 월요일 13:00 UTC = 9:00 AM ET
+    - cron: "0 13 * * 1"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "실행 모드"
+        required: false
+        default: "strategy"
+        type: choice
+        options:
+          - strategy
+          - news
+          - force-rebalance
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  run-bot:
+    name: N10-MEW 전략 실행
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          update-environment: true
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run strategy
+        if: github.event.schedule != '0 13 * * 1' && github.event.inputs.mode != 'news' && github.event.inputs.mode != 'force-rebalance'
+        working-directory: backend
+        run: python run_once.py
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Run news check
+        if: github.event.schedule == '0 13 * * 1' || github.event.inputs.mode == 'news'
+        working-directory: backend
+        run: python run_once.py --news
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Force rebalance
+        if: github.event.inputs.mode == 'force-rebalance'
+        working-directory: backend
+        run: python run_once.py --force-rebalance
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Commit portfolio state
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add backend/data/mock_account.json
+          git diff --staged --quiet && echo "변경 없음, 커밋 건너뜀" || (
+            git commit -m "chore: 포트폴리오 상태 업데이트 [skip ci]" &&
+            git pull --rebase origin main &&
+            git push origin main
+          )

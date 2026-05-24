@@ -1,0 +1,13 @@
+python-dotenv
+requests
+anthropic
+pandas
+numpy
+pykrx
+yfinance
+ta
+schedule
+pytz
+rich
+supabase
+matplotlib

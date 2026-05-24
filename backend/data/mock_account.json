@@ -1,0 +1,45 @@
+{
+    "initial_cash": 1000.0,
+    "cash": 99.56091045250002,
+    "currency": "USD",
+    "positions": {
+        "N10_MEW": {
+            "AMD": {
+                "qty": 0.2231,
+                "avg_price": 448.514145
+            },
+            "MRVL": {
+                "qty": 0.6079,
+                "avg_price": 164.58225
+            },
+            "MU": {
+                "qty": 0.1304,
+                "avg_price": 766.96329
+            },
+            "ARM": {
+                "qty": 0.481,
+                "avg_price": 208.02396
+            },
+            "QCOM": {
+                "qty": 0.4755,
+                "avg_price": 210.415155
+            },
+            "ON": {
+                "qty": 0.9605,
+                "avg_price": 104.162055
+            },
+            "CRWD": {
+                "qty": 0.1831,
+                "avg_price": 546.45309
+            },
+            "TXN": {
+                "qty": 0.3388,
+                "avg_price": 295.317585
+            },
+            "PANW": {
+                "qty": 0.4638,
+                "avg_price": 215.7078
+            }
+        }
+    }
+}
