@@ -1,6 +1,17 @@
 import { DashboardData, Position, MomentumRanking, EarningsAlert } from "./types";
 import { MOCK_DATA } from "./mockData";
 
+export async function fetchLivePrices(): Promise<Record<string, number>> {
+  try {
+    const res = await fetch("/api/prices", { cache: "no-store" });
+    if (!res.ok) return {};
+    const { prices } = await res.json();
+    return prices ?? {};
+  } catch {
+    return {};
+  }
+}
+
 export async function fetchDashboardData(): Promise<DashboardData> {
   try {
     const res = await fetch("/api/dashboard", { cache: "no-store" });

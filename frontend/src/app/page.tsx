@@ -10,7 +10,8 @@ import RebalanceStatus from "@/components/RebalanceStatus";
 import BottomNav from "@/components/BottomNav";
 import NewsPage from "@/components/NewsPage";
 import BrokerSettings from "@/components/BrokerSettings";
-import { fetchDashboardData } from "@/lib/api";
+import WithdrawalReservation from "@/components/WithdrawalReservation";
+import { fetchDashboardData, fetchLivePrices } from "@/lib/api";
 import { DashboardData } from "@/lib/types";
 import { MOCK_DATA } from "@/lib/mockData";
 import { createBrowserSupabaseClient } from "@/lib/supabase";
@@ -40,9 +41,54 @@ export default function Home() {
 
   // 대시보드 데이터 로드
   useEffect(() => {
-    fetchDashboardData().then((d) => { setData(d); setLoading(false); });
-    const interval = setInterval(() => { fetchDashboardData().then(setData); }, 5 * 60 * 1000);
-    return () => clearInterval(interval);
+    // 초기 전체 데이터 로드
+    fetchDashboardData().then((d) => {
+      setData(d);
+      setLoading(false);
+    });
+
+    // 5분마다 현재가·수익률·평가액 갱신
+    const priceInterval = setInterval(async () => {
+      const prices = await fetchLivePrices();
+      if (Object.keys(prices).length === 0) return;
+      setData((prev) => {
+        const positions = prev.portfolio.positions.map((p) => {
+          const cur = prices[p.ticker] ?? p.current_price;
+          const value = p.qty * cur;
+          return {
+            ...p,
+            current_price: cur,
+            value,
+            pnl_pct: p.avg_price > 0 ? ((cur - p.avg_price) / p.avg_price) * 100 : 0,
+          };
+        });
+        const stockValue = positions.reduce((s, p) => s + p.value, 0);
+        const investedAmount = positions.reduce((s, p) => s + p.qty * p.avg_price, 0);
+        return {
+          ...prev,
+          portfolio: {
+            ...prev.portfolio,
+            total_value: stockValue,
+            total_pnl_pct:
+              investedAmount > 0 ? ((stockValue - investedAmount) / investedAmount) * 100 : 0,
+            positions: positions.map((p) => ({
+              ...p,
+              weight: stockValue > 0 ? (p.value / stockValue) * 100 : 0,
+            })),
+          },
+        };
+      });
+    }, 5 * 60 * 1000);
+
+    // 15분마다 전체 데이터 갱신 (보유 수량·평단가·모멘텀 랭킹 포함)
+    const fullInterval = setInterval(() => {
+      fetchDashboardData().then(setData);
+    }, 15 * 60 * 1000);
+
+    return () => {
+      clearInterval(priceInterval);
+      clearInterval(fullInterval);
+    };
   }, []);
 
   // 패널 외부 클릭 시 닫기
@@ -208,6 +254,9 @@ export default function Home() {
                 </div>
               </div>
             )}
+
+            {/* 출금 예약 */}
+            <WithdrawalReservation totalValue={portfolio.total_value + portfolio.cash} />
 
             {/* Drift alert */}
             {rebalance_info.drift_alerts.length > 0 && (
