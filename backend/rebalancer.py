@@ -198,7 +198,12 @@ class N10MEWRebalancer:
                     self._place_sell(ticker, sell_qty)
 
         # ── 3단계: 신규 편입 및 과소비중 매수 ──────────────────────────
+        import math
+
         holdings = self._get_holdings()
+
+        # 1차 패스: 매수 필요 종목 수집 (현재가 없는 종목 선제 제외)
+        buys_needed: list[tuple[str, float, float]] = []  # (ticker, cur_price, cur_value)
         for ticker in new_top10:
             cur_price = current_prices.get(ticker)
             if not cur_price:
@@ -206,32 +211,45 @@ class N10MEWRebalancer:
                 continue
             cur_value = holdings.get(ticker, {}).get("qty", 0) * cur_price
             drift = (target_per_stock - cur_value) / target_per_stock
-
             if drift > REBALANCE_THRESHOLD:
-                # 가용 현금 조회 (슬리피지 0.05% 감안하여 실제 사용 가능 금액 계산)
-                if self.broker.is_simulation_mode:
-                    import utils.mock_account as mock
-                    available_cash = mock.get_virtual_balance().get("cash", 0.0)
-                else:
-                    acc = self.broker.get_account_balance() or {}
-                    available_cash = acc.get("cash", 0.0)
+                buys_needed.append((ticker, cur_price, cur_value))
 
-                usable_cash = available_cash / 1.0005
+        # 2차 패스: 매수 실행 — 마지막 종목은 잔여 현금 전액 투자
+        for i, (ticker, cur_price, cur_value) in enumerate(buys_needed):
+            is_last = (i == len(buys_needed) - 1)
+
+            if self.broker.is_simulation_mode:
+                available_cash = mock.get_virtual_balance().get("cash", 0.0)
+            else:
+                acc = self.broker.get_account_balance() or {}
+                available_cash = acc.get("cash", 0.0)
+
+            usable_cash = available_cash / 1.0005
+
+            if is_last:
+                # 마지막 종목: 남은 현금 전액 사용 (target 상한 제거)
+                buy_value = usable_cash
+            else:
                 buy_value = min(target_per_stock - cur_value, usable_cash)
-                if buy_value <= 0:
-                    logger.warning(f"⚠️ [Rebalancer] {ticker} 매수 불가 (가용현금 없음)")
-                    continue
-                buy_qty = round(buy_value / cur_price, 4)
-                if buy_qty <= 0:
-                    continue
-                action = "신규 편입" if cur_value == 0 else "비중 보강"
-                logger.info(
-                    f"📥 [Rebalancer] {action} 매수: {ticker} "
-                    f"{buy_qty:g}주 @ ${cur_price:.2f}"
-                )
-                exec_price = self._place_buy(ticker, buy_qty)
-                if exec_price:
-                    bought_log.append(f"{ticker} @ ${exec_price:.2f}")
+
+            if buy_value <= 0:
+                logger.warning(f"⚠️ [Rebalancer] {ticker} 매수 불가 (가용현금 없음)")
+                continue
+
+            # 소수점 매수: 항상 내림(floor)으로 오버스펜드 방지
+            buy_qty = math.floor(buy_value / cur_price * 10000) / 10000
+            if buy_qty <= 0:
+                continue
+
+            action = "신규 편입" if cur_value == 0 else "비중 보강"
+            logger.info(
+                f"📥 [Rebalancer] {action} 매수: {ticker} "
+                f"{buy_qty:g}주 @ ${cur_price:.2f}"
+                + (" [잔여현금 전액]" if is_last else "")
+            )
+            exec_price = self._place_buy(ticker, buy_qty)
+            if exec_price:
+                bought_log.append(f"{ticker} @ ${exec_price:.2f}")
 
         # ── 완료 처리 ────────────────────────────────────────────────────
         today = datetime.now(self.timezone).date()
