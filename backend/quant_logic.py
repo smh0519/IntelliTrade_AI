@@ -48,7 +48,11 @@ class TradingStrategy:
         cash = data.get("cash", 0.0)
         holdings = data.get("positions", {}).get(STRATEGY_TAG, {})
 
-        total_value = cash
+        stock_value = sum(
+            info.get("qty", 0.0) * current_prices.get(sym, info.get("avg_price", 0.0))
+            for sym, info in holdings.items()
+        )
+        total_value = cash + stock_value
         lines = []
 
         for sym, info in holdings.items():
@@ -56,7 +60,6 @@ class TradingStrategy:
             avg = info.get("avg_price", 0.0)
             cur_p = current_prices.get(sym, avg)
             value = qty * cur_p
-            total_value += value
 
             pnl_pct = ((cur_p - avg) / avg * 100) if avg > 0 else 0.0
             weight = (value / total_value * 100) if total_value > 0 else 0.0
@@ -206,6 +209,11 @@ class TradingStrategy:
         # 5. 리밸런싱 트리거 판단
         new_top10 = ranked_tickers[:TOP_N_PORTFOLIO]
         holdings = self.rebalancer._get_holdings()
+
+        # 무상태 봇 재시작 시 current_portfolio를 실제 보유 종목으로 복원
+        if not self.rebalancer.current_portfolio and holdings:
+            self.rebalancer.current_portfolio = list(holdings.keys())
+            logger.info(f"[Strategy] current_portfolio 복원: {self.rebalancer.current_portfolio}")
 
         rebalanced = False
 

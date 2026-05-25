@@ -178,7 +178,14 @@ class BrokerAPIClient:
     def place_buy_order(self, symbol: str, quantity: float, price: float = None, strategy_tag: str = "MANUAL") -> dict | None:
         if self.is_simulation_mode:
             import utils.mock_account as mock
-            exec_price = price if price else self.get_current_price(symbol)["price"]
+            if price:
+                exec_price = price
+            else:
+                price_info = self.get_current_price(symbol)
+                if not price_info:
+                    logger.error(f"[시뮬] {symbol} 현재가 조회 실패 — 매수 건너뜁니다.")
+                    return None
+                exec_price = price_info["price"]
             res_price = mock.execute_virtual_buy(symbol, quantity, exec_price, strategy_tag)
             if res_price is None:
                 return None
@@ -209,7 +216,14 @@ class BrokerAPIClient:
     def place_sell_order(self, symbol: str, quantity: float, price: float = None, strategy_tag: str = "MANUAL") -> dict | None:
         if self.is_simulation_mode:
             import utils.mock_account as mock
-            exec_price = price if price else self.get_current_price(symbol)["price"]
+            if price:
+                exec_price = price
+            else:
+                price_info = self.get_current_price(symbol)
+                if not price_info:
+                    logger.error(f"[시뮬] {symbol} 현재가 조회 실패 — 매도 건너뜁니다.")
+                    return None
+                exec_price = price_info["price"]
             res_price = mock.execute_virtual_sell(symbol, quantity, exec_price, strategy_tag)
             if res_price is None:
                 return None
