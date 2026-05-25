@@ -39,13 +39,14 @@ export default function AuthCallbackPage() {
       // ── PKCE flow: URL에 code가 있는 경우 ──
       const code = new URLSearchParams(window.location.search).get("code");
       if (code) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+        const { data } = await supabase.auth.exchangeCodeForSession(code);
         if (data.session) {
           router.replace("/");
           return;
         }
-        setErrorMsg(error?.message ?? "코드 교환 실패");
-        setTimeout(() => router.replace("/login?error=" + encodeURIComponent(error?.message ?? "exchange_failed")), 2000);
+        // PKCE 실패(iOS Safari 등) — 세션이 쿠키에 이미 있을 수 있으므로 조용히 확인
+        const { data: { session } } = await supabase.auth.getSession();
+        router.replace(session ? "/" : "/login");
         return;
       }
 
