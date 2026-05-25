@@ -182,7 +182,8 @@ export default function Home() {
       )}
 
       <div className="max-w-lg mx-auto px-4 pt-4 space-y-4">
-        {tab === "overview" && (
+        {loading && <DashboardSkeleton />}
+        {!loading && tab === "overview" && (
           <>
             <PortfolioSummary portfolio={portfolio} />
 
@@ -274,9 +275,9 @@ export default function Home() {
           </>
         )}
 
-        {tab === "holdings" && <HoldingsList positions={portfolio.positions} />}
-        {tab === "momentum" && <MomentumRankingCard ranking={momentum_ranking} />}
-        {tab === "rebalance" && (
+        {!loading && tab === "holdings" && <HoldingsList positions={portfolio.positions} />}
+        {!loading && tab === "momentum" && <MomentumRankingCard ranking={momentum_ranking} />}
+        {!loading && tab === "rebalance" && (
           <RebalanceStatus
             info={rebalance_info}
             benchmarks={benchmarks}
@@ -288,6 +289,53 @@ export default function Home() {
 
       <BottomNav active={tab} onChange={(t) => setTab(t as Tab)} />
     </main>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      {/* 포트폴리오 카드 */}
+      <div className="rounded-2xl bg-slate-900 border border-slate-800 p-5">
+        <div className="flex items-start justify-between mb-4">
+          <div className="h-3 w-28 bg-slate-800 rounded" />
+          <div className="h-3 w-36 bg-slate-800 rounded" />
+        </div>
+        <div className="h-10 w-40 bg-slate-800 rounded mb-2" />
+        <div className="h-3 w-52 bg-slate-800 rounded mb-5" />
+        <div className="h-9 w-28 bg-slate-800 rounded-xl mb-4" />
+        <div className="grid grid-cols-2 gap-3">
+          <div className="h-16 bg-slate-800 rounded-xl" />
+          <div className="h-16 bg-slate-800 rounded-xl" />
+        </div>
+      </div>
+
+      {/* Quick stats */}
+      <div className="grid grid-cols-3 gap-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="rounded-xl bg-slate-900 border border-slate-800 p-3">
+            <div className="h-2 w-12 bg-slate-800 rounded mb-2 mx-auto" />
+            <div className="h-4 w-14 bg-slate-800 rounded mx-auto" />
+          </div>
+        ))}
+      </div>
+
+      {/* 모멘텀 Top 5 */}
+      <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
+        <div className="h-2 w-20 bg-slate-800 rounded mb-3" />
+        <div className="flex gap-2 flex-wrap">
+          {[80, 96, 88, 72, 84].map((w, i) => (
+            <div key={i} className={`h-7 bg-slate-800 rounded-lg`} style={{ width: `${w}px` }} />
+          ))}
+        </div>
+      </div>
+
+      {/* 출금 예약 */}
+      <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
+        <div className="h-2 w-16 bg-slate-800 rounded mb-2" />
+        <div className="h-3 w-48 bg-slate-800 rounded" />
+      </div>
+    </div>
   );
 }
 
