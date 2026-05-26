@@ -140,8 +140,9 @@ def load_broker_credentials(user_id: str) -> dict | None:
         return None
 
     try:
-        res = client.table("user_broker_credentials").select("*").eq("user_id", user_id).maybeSingle().execute()
-        return res.data  # None이면 설정 없음
+        res = client.table("user_broker_credentials").select("*").eq("user_id", user_id).limit(1).execute()
+        rows = res.data or []
+        return rows[0] if rows else None
     except Exception as e:
         logger.error(f"[Supabase] 브로커 자격증명 로드 실패: {e}")
         return None

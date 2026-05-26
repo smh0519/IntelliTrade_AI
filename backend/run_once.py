@@ -32,7 +32,7 @@ def main():
 
     logger.info(f"[run_once] 시작 — 모드: {'뉴스 점검' if is_news else '강제 리밸런싱' if is_force else '전략 실행'}")
 
-    user_id = os.getenv("BOT_USER_ID", "")
+    user_id = os.getenv("BOT_USER_ID", "").strip()
     broker = BrokerAPIClient(user_id=user_id)
     strategy = TradingStrategy(broker, user_id=user_id)
 
