@@ -59,7 +59,8 @@ def push_portfolio_snapshot(
             "pnl_pct":      round(pnl_pct, 4),
             "positions":    enriched,
         }
-        if user_id:
+        # 실거래 모드에서만 user_id 태깅 (모의투자는 공유 데이터)
+        if user_id and not os.getenv("IS_SIMULATION_MODE", "True").lower() == "true":
             row["user_id"] = user_id
         client.table("portfolio_snapshots").insert(row).execute()
         logger.info("☁️  [Supabase] 포트폴리오 스냅샷 저장 완료")
@@ -87,7 +88,8 @@ def push_momentum_rankings(full_ranking: list, portfolio: list, user_id: str = "
 
     try:
         row: dict = {"rankings": rankings}
-        if user_id:
+        # 실거래 모드에서만 user_id 태깅 (모의투자는 공유 데이터)
+        if user_id and not os.getenv("IS_SIMULATION_MODE", "True").lower() == "true":
             row["user_id"] = user_id
         client.table("momentum_rankings").insert(row).execute()
         logger.info("☁️  [Supabase] 모멘텀 랭킹 저장 완료")
@@ -193,7 +195,8 @@ def push_rebalance_log(
             "sold_tickers":   sold_tickers,
             "bought_tickers": bought_tickers,
         }
-        if user_id:
+        # 실거래 모드에서만 user_id 태깅 (모의투자는 공유 데이터)
+        if user_id and not os.getenv("IS_SIMULATION_MODE", "True").lower() == "true":
             row["user_id"] = user_id
         client.table("rebalance_log").insert(row).execute()
         logger.info("☁️  [Supabase] 리밸런싱 이력 저장 완료")

@@ -170,21 +170,18 @@ export async function GET() {
       client
         .from("portfolio_snapshots")
         .select("*")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .single(),
       client
         .from("momentum_rankings")
         .select("rankings, created_at")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
       client
         .from("rebalance_log")
         .select("*")
-        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
