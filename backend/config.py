@@ -27,6 +27,14 @@ PORTFOLIO_STOP_LOSS = -0.20      # 전체 포트폴리오 -20% 이탈 시 경고
 MIN_CASH_BALANCE = 500           # 리밸런싱 후 유지할 최소 현금 잔고 ($)
 SLIPPAGE_TOLERANCE = 0.005       # 허용 슬리피지 (0.5%)
 
+# --- 시장 필터 (안전벨트) ---
+MARKET_FILTER_SYMBOL = "QQQ"        # 시장 국면 판단 기준 ETF
+MARKET_FILTER_MA_PERIOD = 200       # 이동평균 기간 (거래일)
+MARKET_FILTER_BUFFER = 0.02         # ±2% 버퍼 (NEUTRAL 구간, whipsaw 방지)
+EMERGENCY_EXIT_THRESHOLD = 0.05     # 200MA -5% 이탈 시 EMERGENCY 발동
+BULL_RECOVERY_CONFIRM_DAYS = 5      # BULL 복귀 확인 연속 거래일
+EMERGENCY_SECOND_EXIT_DAYS = 2      # 1차 청산 후 나머지 30% 청산까지 대기 거래일
+
 # --- 주문 설정 ---
 ORDER_TIMEOUT_MINUTES = 5        # 미체결 주문 타임아웃 (분)
 UNFILLED_ORDER_ACTION = "cancel" # 타임아웃 시 조치: cancel
